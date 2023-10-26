@@ -166,7 +166,7 @@ placeholder : str, optional
     and ends of the sequence. Must be one character. The default is "!".
 
 pass_nan : bool, optional  
-    Whether to pass or raise an exception when given nan in the sequences
+    Whether to pass or raise an exception when given nan in the sequences. Default is True (pass)
 
 debug : bool, optional  
     Whether a message should be printed when failing to find a residue. The default is True.
