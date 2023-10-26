@@ -815,3 +815,84 @@ def get_flanking_info(PDB_file : str, amino_acid : str, debug : bool = False) ->
     #print(chain_sequences)
     return newdata, chain_sequences #output the flanking info as a new dataframe for each cysteine, output the chain sequences as a dicitonary
 
+def get_residues(residue : str, flanknum : int, sequence : str, placeholder : str = "!", frameshift : bool = False) -> dict:
+    """
+    Takes a sequence. Creates a dictionary with the residue number and flanking residues 
+    of an amino acid that can be found in the sequence.
+
+    Parameters
+    ----------
+    residue : str
+        The residue to return a list of. E.g. "C".
+    flanknum : int
+        Number of residues to return in the sequences wither side of the desired residue.
+    sequence : str
+        Sequence in which to find the residues.
+    placeholder : str, optional
+        Placeholder where there is empty space, such as after the end of a sequence. 
+        The default is "!".
+    frameshift : bool, optional
+        Whether to include also returning frameshifted versions of the sequence, to 
+        make sequence alignment more robust. The default is False.
+        Frameshift is a bit of a misnomer, just mean (for example) if a residue has 
+        been swapped with another next to it, like ABCDEFG compared to ABCEDFG which 
+        would otherwise lead to not detecting that residue at all.
+
+    Returns
+    -------
+    dict
+        A dictionary containing sequence numbers as keys with the data attached to each 
+        key being a sequence around that residue.
+        If frameshift is True, some entries will be frameshifted sequences with a key
+        as the residue number followed by +/- and a number denoting the number of 
+        frameshifts.
+
+    """
+    
+    #the residue number is the actual number rather the list-index number
+    reslist = {} #make the dictionary to fill up
+    sequence = "".join([placeholder for i in range(flanknum)]) + sequence
+    for position, letter in enumerate(str(sequence)): #iterate through the letters in the sequence
+        if(letter == residue): #check that the letter is a cysteine? allowing return of any residue caused problems
+            flank = []
+            for offset in range(0 - flanknum, flanknum + 1): #count through the residues around the residue
+                try:
+                    flank.append(sequence[position + offset]) #try to add those flanking residues to 'flank'
+                except:
+                    flank.append(placeholder) #what to add when there isn't a residue
+            reslist[position - flanknum + 1] =  "".join(flank) #add the residue and flanks to the list
+    
+    #   Add new potential frameshifted residues        
+    if frameshift != False:
+        shifted = {}
+        for res in reslist:    #   For every seq1 residue
+        
+            #   Set the frameshift level to the flanknum if frameshift not specified
+            if isinstance(frameshift, bool):
+                frameshift = flanknum
+            
+            #   Frameshift every potential residue on the left side
+            #   For each number of frameshifts up to the flanknum
+            for shift in range(frameshift):
+                #   Make a new entry to store the shifted sequence as a list
+                shifted[str(res) + "-" + str(shift)] = list(reslist[res])
+                #   Add an X for every frameshift and remove a residue to compensate
+                for i in range(shift):
+                    shifted[str(res) + "-" + str(shift)].insert(flanknum, "X")
+                    shifted[str(res) + "-" + str(shift)].pop(0)
+                    
+            #   Frameshift every potential residue on the right side
+            for shift in range(frameshift):
+                shifted[str(res) + "+" + str(shift)] = list(reslist[res])
+                for i in range(shift):
+                    shifted[str(res) + "+" + str(shift)].insert(flanknum + 1, "X")
+                    shifted[str(res) + "+" + str(shift)].pop()
+        
+        #   Concatonate the shifted sequences into strings so they are the same as 
+        #   normal ones.
+        for res in shifted:
+            shifted[res] = "".join(shifted[res])
+        #   Add the shifted sequences to the normal ones
+        reslist.update(shifted)
+        
+    return reslist
