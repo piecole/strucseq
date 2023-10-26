@@ -70,3 +70,70 @@ Whether to print progess or other notifications
 #### Returns
 
 Nothing is returned, but a CSV is saved specifying the uniprot ID of each chain in every structure of the input CSV.
+
+
+## get_uniprot_details
+
+get_uniprot_details(unicode, debug):
+    
+When given a uniprot code, will return a dictionary containing details from 
+the uniprot website.
+
+### Parameters
+
+unicode : str  
+The uniprot code used to fetch uniprot details.
+
+debug : bool, optional  
+Whether to print notifications.
+
+
+### Returns
+
+dict  
+A dictionary relating to different information from uniprot, such as protein names
+and descriptions.
+
+### Examples
+
+    get_uniprot_details("Q13426")
+
+    {'uniprot name': 'DNA repair protein XRCC4',
+     'uniprot abbreviation': 'XRCC4_HUMAN',
+     'localisations': ['Nucleus', 'Chromosome'],
+     'description': 'The XRCC4 gene encodes a novel protein involved in DNA double-strand break repair and V(D)J recombination.',
+     'variants': {(0, 'In dbSNP:rs28383138.'): {'original residue': 'S',
+       'variation residue': 'C',
+       'position': '12'},
+      (1,
+       'In SSMED; impairs the protein function in DNA double-strand break repair; dbSNP:rs587779351.'): {'original residue': 'W',
+       'variation residue': 'R',
+       'position': '43'},
+      (2, 'In dbSNP:rs28383151.'): {'original residue': 'A',
+       'variation residue': 'T',
+       'position': '56'},
+      (3,
+       'In SSMED; impaired ability to repair DNA double-strand breaks.'): {'original residue': 'D', 'variation residue': 'E', 'position': '82'},
+      (4, 'In dbSNP:rs28360135.'): {'original residue': 'I',
+       'variation residue': 'T',
+       'position': '134'},
+      (5, 'In dbSNP:rs28360136.'): {'original residue': 'E',
+       'variation residue': 'Q',
+       'position': '142'},
+      (6, 'In SSMED.'): {'original residue': '',
+       'variation residue': '',
+       'begin': '161',
+    ...
+     'domains': {},
+     'active sites': {},
+     'binding sites': {},
+     'mammalian': 1,
+     'function': ['DNA ligation involved in DNA repair',
+      'double-strand break repair',
+      'double-strand break repair via nonhomologous end joining',
+      'immunoglobulin V(D)J recombination',
+      'positive regulation of ligase activity',
+      'positive regulation of phosphatidylserine exposure on apoptotic cell surface',
+      'protein localization to site of double-strand break',
+      'response to X-ray']}
+    
