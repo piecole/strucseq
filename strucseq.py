@@ -920,12 +920,12 @@ def get_equivalentresidue(resnum : int, seq1 : str, seq2 : str, flanknum : int =
         Whether to pass or raise an exception when given nan in the sequences
     debug : bool, optional
         Whether a message should be printed when failing to find a residue. The default is True.
-        WHY DOES IT FAIL!?
 
     Returns
     -------
     list
-        DESCRIPTION.
+        [0]: converted residue number
+        [1]: alignment score
 
     """
     
