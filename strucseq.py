@@ -986,3 +986,39 @@ def get_equivalentresidue(resnum : int, seq1 : str, seq2 : str, flanknum : int =
     #except:
     #    if debug == True: print("Failed to get equivalent residue. Resnum:", resnum, " Seq1:", seq1, " Seq2:", seq2)
     #    return [np.NaN, np.NaN]
+
+def reverse_sequence(sequence, seq_start = False, seq_end = False):
+    """
+    Takes input characters and reverses it. If seq_start and seq_end are given, function
+    returns where seq_start and seq_end are in the new sequence.
+
+    Parameters
+    ----------
+
+    sequence : str
+        The sequence to reverse.
+    seq_start : int, optional
+        Region position that will be returned in the new sequence. The default is False.
+    seq_end : int, optional
+        Region position that will be returned in the new sequence. The default is False.
+
+    Returns
+    -------
+    str or
+    tuple
+        [0]: The reversed sequence.
+        [1]: The new start position of the region.
+        [2]: The new end position of the region.
+    """
+
+    # If no start or end is given, just reverse the sequence
+    if seq_start == False and seq_end == False:
+        return sequence[::-1]
+    assert isinstance(seq_start, int), "Expected int for seq_start, got " + repr(type(seq_start))
+    assert isinstance(seq_end, int), "Expected int for seq_end, got " + repr(type(seq_end))
+
+    #   If start and end are given, return the new start and end positions
+    end = len(sequence)
+    new_start = end - seq_end
+    new_end = end - seq_start
+    return sequence[::-1], new_start + 1, new_end + 1

@@ -190,3 +190,37 @@ list
     >>> get_equivalentresidue(6, "QWERTYUIOP", "ASDFYGHJYYKLQWERTYUIOP")
 
     [18, 11]
+
+### reverse_sequence
+
+reverse_sequence(sequence, seq_start = False, seq_end = False):
+    
+Takes input characters and reverses it. If seq_start and seq_end are given, function
+returns where seq_start and seq_end are in the new sequence.
+
+#### Parameters
+
+sequence : str
+    The sequence to reverse.
+seq_start : int, optional
+    Region position that will be returned in the new sequence. The default is False.
+seq_end : int, optional
+    Region position that will be returned in the new sequence. The default is False.
+
+#### Returns
+
+str or  
+    tuple  
+        [0]: The reversed sequence.  
+        [1]: The new start position of the region.  
+        [2]: The new end position of the region.
+
+#### Examples
+
+    >>> reverse_sequence("QWERTYUIOP")
+
+    'POIUYTREWQ'
+
+    >>> reverse_sequence("QWERTYUIOP", 2, 4)
+
+    ('POIUYTREWQ', 7, 9)
