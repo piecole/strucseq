@@ -4,6 +4,8 @@ from bs4 import BeautifulSoup
 import pandas as pd
 import lxml
 import numpy as np
+import gzip
+from Bio.PDB import *
 
 try:
     from tqdm import tqdm
@@ -15,6 +17,44 @@ except:
 alphabet = ["A","B","C","D","E","F","G","H","I","J","K","L","M","N","O","P","Q","R","S","T","U","V","W","X","Y","Z", "DCY"]
 threeletter = ["ALA","DCY","CYS","ASP","GLU","PHE","GLY","HIS","ILE","JXX","LYS","LEU","MET","ASN","OXX","PRO","GLN","ARG","SER","THR","MSE","VAL","TRP","TPO","TYR","SEP"]
 threetoone = dict(zip(threeletter, alphabet))
+
+get_pKa = { #this dictioary defines the pKas of amino acid side chains
+    #according to: https://www.sigmaaldrich.com/life-science/metabolomics/learning-center/amino-acid-reference-chart.html#prop
+    "R": 12.48, "D": 3.65, "C": 8.18, "E": 4.25, "H": 6.00, "K": 10.53, "Y": 10.07, "U":1, "X":5.9, "Z":5.6, "DCY":8.18
+    #selenomethionine "U" has been given as pKa 1 as no value is known
+    #phosphoserine and phospohthreonine are from 16018962
+    #R-cysteine given same value as L-cysteine
+}
+get_charge = {
+    "R": 1, "D": -1, "E": -1, "H": 1, "K": 1
+    }
+
+get_hydrophobic7 = { #all the amino acid hydrophobicities at pH7
+    "A":41,
+    "C":49,
+    "D":-55,
+    "E":31,
+    "F":97,
+    "G":0,
+    "H":8,
+    "I":99,
+    "K":-23,
+    "L":97,
+    "M":74,
+    "N":-28,
+    "P":-49, #reference uses pH2 value for some reason
+    "Q":-10,
+    "R":-14,
+    "S":-5,
+    "T":13,
+    "U":74, #selenomethonine same as methionine since no value is known for selenomethionine? - check this
+    "V":76,
+    "W":97,
+    "X":0, #phospohthreonine didn't know what value to give
+    "Y":63,
+    "Z":0, #phosphothreonine didn't know what value to give
+    "DCY":49 #R-cysteine same as L cysteine
+}
 
 def get_uniprot_accessions(pdbcode : str, strict = True, selenium = False, debug = False) -> dict:
     """
