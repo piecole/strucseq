@@ -50,9 +50,9 @@ get_hydrophobic7 = { #all the amino acid hydrophobicities at pH7
     "U":74, #selenomethonine same as methionine since no value is known for selenomethionine? - check this
     "V":76,
     "W":97,
-    "X":0, #phospohthreonine didn't know what value to give
+    "X":0, #phospohthreonine unknown what value to give
     "Y":63,
-    "Z":0, #phosphothreonine didn't know what value to give
+    "Z":0, #phosphothreonine unknown what value to give
     "DCY":49 #R-cysteine same as L cysteine
 }
 
@@ -723,19 +723,21 @@ parser = PDBParser()
 def get_flanking_info(PDB_file : str, amino_acid : str, debug : bool = False) -> tuple:
     """
         
-    Takes a PDB file and returns flanking information for all the cysteines
+    Takes a PDB file and returns flanking information for all the cysteines and also returns the real sequences of each chain.
 
     Parameters
     ----------
     PDB_file : str
         The path to the input PDB file.
+    amino_acid : str
+        The amino acid to list flanking info for, e.g. "CYS".
     debug : bool, optional
         Should this function print its output each time.
 
     Returns
     -------
     tuple
-        [0]: Information about flanking residues including sequence, pKas, hydrophobicities, 
+        [0]: Dataframe with information about flanking residues including sequence, pKas, hydrophobicities, 
         and charges at pH 7.
         
         [1]: Sequences of the chains in the structure.
@@ -764,7 +766,7 @@ def get_flanking_info(PDB_file : str, amino_acid : str, debug : bool = False) ->
                     if resname != "HOH" and residue.id[1] >= 0: #check residue is not water and has a seq number of 0 or more
                         res_list[residue.id[1] -1] = threetoone[resname] #compile chain sequence
                 except:
-                    if debug == True: print("res list:",res_list, "residue:", residue)
+                    if debug == True: print("res list:", res_list, "residue:", residue)
                     res_list[residue.id[1] -1] = "!" #otherwise add exclamation marks
             for residue in realreslist:
                 if residue.get_resname() == amino_acid:
