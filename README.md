@@ -1,5 +1,7 @@
 # StrucSeq
-Fetch and process data between protein structures and sequences.
+A python package to fetch and process data between protein structures and sequences.
+
+This is very much a work in progress.
 
 ## Functions
 
