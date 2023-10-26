@@ -896,3 +896,93 @@ def get_residues(residue : str, flanknum : int, sequence : str, placeholder : st
         reslist.update(shifted)
         
     return reslist
+
+amino_acid_groups = {False: [], "positive" : ["R", "H", "K"], "negative": ["D", "E"], "polar": ["S", "T", "N", "Q"], "hydrophobic":["A", "V", "I", "L", "M", "F", "W"]}
+def get_equivalentresidue(resnum : int, seq1 : str, seq2 : str, flanknum : int = 5, placeholder : str = "!", pass_nan : bool = True, debug : bool = False) -> list:
+    """
+    Takes the specified residue from sequence 1 and uses alignment to get its number 
+    in sequence 2.
+
+    Parameters
+    ----------
+    resnum : int
+        The residue number to convert, starts at 1.
+    seq1 : str
+        The sequence that residue number is from.
+    seq2 : str
+        The sequence to find that residue in.
+    flanknum : int, optional
+        The number of flanking residues to use in the alignment. The default is 5.
+    placeholder : str, optional
+        The placeholder to be used when a residue is missing, such as the beginning 
+        and ends of the sequence. Must be one character. The default is "!".
+    pass_nan : bool, optional
+        Whether to pass or raise an exception when given nan in the sequences
+    debug : bool, optional
+        Whether a message should be printed when failing to find a residue. The default is True.
+        WHY DOES IT FAIL!?
+
+    Returns
+    -------
+    list
+        DESCRIPTION.
+
+    """
+    
+    #print("resnum:", resnum, "\tseq1:", seq1, "\tseq2:", seq2, "\tplaceholder:", placeholder)
+    #print(get_residues(seq1[resnum - 1], 5, seq1, placeholder))
+    #print(seq1, resnum)
+    
+    #catch input errors
+    assert isinstance(resnum, int), "Expected int for resnum, got " + repr(type(resnum))
+    assert isinstance(pass_nan, bool), "Expected bool for pass_nan, got " + repr(type(pass_nan))
+    if pass_nan == False:
+        assert isinstance(seq1, str), "Expected str for seq1, got '" + repr(seq1) + "' which is " + repr(type(seq1))
+        assert isinstance(seq2, str), "Expected str for seq2, got '" + repr(seq2) + "' which is " + repr(type(seq2))
+    assert isinstance(flanknum, int), "Expected int for flanknum, got " + repr(type(flanknum))
+    assert isinstance(placeholder, str), "Expected str for placeholder, got " + repr(type(placeholder))
+    assert len(placeholder) == 1, f"Expected single letter string for placeholder, got '{placeholder}'."
+    assert isinstance(debug, bool), "Expected bool for debug, got " + repr(type(debug))
+    
+    #   Extract the flanking sequence in seq1
+    failed = False
+    try:
+        extract = get_residues(seq1[resnum - 1], flanknum, seq1, placeholder)[resnum]
+    except:
+        failed = True
+        with open("converting regions errors.csv", "a+") as f:
+            f.write(f"No residue {resnum} in {seq1} to convert to {seq2}\r")
+    
+    if failed == False:
+        #   Turn seq2 into a dictionary of its relevent residues
+        seq2 = get_residues(seq1[resnum - 1], flanknum, seq2, placeholder, frameshift = 1)
+        
+        highscore = 0
+        highscorer = np.NaN
+        for potential in seq2:  #   For potential residues in the seq2 dictionary
+            score = 0
+            for seq2index, letter in enumerate(seq2[potential]):
+                group = False
+                for key in amino_acid_groups:
+                    if letter in amino_acid_groups[key]:
+                        group = key
+                if(letter == extract[seq2index]):
+                    score = score + 1
+                elif extract[seq2index] in amino_acid_groups[group]:
+                    score = score + 0.5
+                    
+            if score > highscore:
+                highscorer = potential
+                highscore = score
+                
+        #   highscorer will be a string if it was a frameshifted residue, so turn this
+        #   back to a plain integer. Also needs to remove the +/- frameshift.
+        if isinstance(highscorer, str):
+            highscorer = int(highscorer.split("-")[0].split("+")[0])
+                
+        return [highscorer, highscore]
+    else:
+        return [np.NaN, np.NaN]
+    #except:
+    #    if debug == True: print("Failed to get equivalent residue. Resnum:", resnum, " Seq1:", seq1, " Seq2:", seq2)
+    #    return [np.NaN, np.NaN]
