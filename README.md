@@ -33,7 +33,7 @@ content is the accession code.
 
 #### Examples 
 
-    get_uniprot_accessions("3ii6")
+    >>> get_uniprot_accessions("3ii6")
     
     {'A': 'Q13426',
     'B': 'Q13426',
@@ -98,7 +98,7 @@ and descriptions.
 
 ### Examples
 
-    get_uniprot_details("Q13426")
+    >>> get_uniprot_details("Q13426")
 
     {'uniprot name': 'DNA repair protein XRCC4',
      'uniprot abbreviation': 'XRCC4_HUMAN',
@@ -179,14 +179,14 @@ list
 
 #### Examples
 
-    get_equivalentresidue(2, "ASDF", "FDSA")
+    >>> get_equivalentresidue(2, "ASDF", "FDSA")
 
     [3, 7]
 
-    get_equivalentresidue(6, "QWERTYUIOP", "ASDFGHJKLF")
+    >>> get_equivalentresidue(6, "QWERTYUIOP", "ASDFGHJKLF")
 
     [nan, 0]
 
-    get_equivalentresidue(6, "QWERTYUIOP", "ASDFGHJKLQWERTYUIOP")
+    >>> get_equivalentresidue(6, "QWERTYUIOP", "ASDFGHJKLQWERTYUIOP")
 
     [15, 11]
