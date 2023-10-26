@@ -11,7 +11,6 @@ try:
 except:
     def tqdm(iterator, *args, **kwargs):
         return iterator
-        
 
 def get_uniprot_accessions(pdbcode : str, strict = True, selenium = False, debug = False) -> dict:
     """
