@@ -10,22 +10,22 @@ Takes a pdb assession code and accesses the PDB to get the Uniprot assession cod
 Parameters
 
 pdbcode : str
-    The 4-letter protein data bank (PDB) code.
+The 4-letter protein data bank (PDB) code.
 strict : bool, optional
-    If False, will not raise an exception in input is incorrect.
+If False, will not raise an exception in input is incorrect.
 selenium : bool, optional
-    Choose to use selenium to scrabe the browser version, rather than the XML 
-    version (currently not got this feature working)
+Choose to use selenium to scrabe the browser version, rather than the XML version (currently not got this feature working)
 debug : bool, optional
-    Write information to console
+Write information to console
 
 Returns
 
 dict
-    Uniprot accession codes of each chain in the strcture. Key is the chain identifier,
-    content is the accession code.
+Uniprot accession codes of each chain in the strcture. Key is the chain identifier,
+content is the accession code.
 
 Example
+
     get_uniprot_accessions("3ii6")
     {'A': 'Q13426',
     'B': 'Q13426',
