@@ -720,7 +720,7 @@ def iterate_uniprot_details(in_csv : str, chain_cols : list, out_csv : str, deli
     data.to_csv(out_csv, sep="\t", index = False)
 
 parser = PDBParser()
-def get_flanking_info(PDB_file : str, debug : bool = False) -> tuple:
+def get_flanking_info(PDB_file : str, amino_acid : str, debug : bool = False) -> tuple:
     """
         
     Takes a PDB file and returns flanking information for all the cysteines
@@ -767,7 +767,7 @@ def get_flanking_info(PDB_file : str, debug : bool = False) -> tuple:
                     if debug == True: print("res list:",res_list, "residue:", residue)
                     res_list[residue.id[1] -1] = "!" #otherwise add exclamation marks
             for residue in realreslist:
-                if residue.get_resname() == "CYS":
+                if residue.get_resname() == amino_acid:
                     flanks = []
                     for offset in range(-5, 6):
                         try:
