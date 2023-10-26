@@ -11,6 +11,10 @@ try:
 except:
     def tqdm(iterator, *args, **kwargs):
         return iterator
+    
+alphabet = ["A","B","C","D","E","F","G","H","I","J","K","L","M","N","O","P","Q","R","S","T","U","V","W","X","Y","Z", "DCY"]
+threeletter = ["ALA","DCY","CYS","ASP","GLU","PHE","GLY","HIS","ILE","JXX","LYS","LEU","MET","ASN","OXX","PRO","GLN","ARG","SER","THR","MSE","VAL","TRP","TPO","TYR","SEP"]
+threetoone = dict(zip(threeletter, alphabet))
 
 def get_uniprot_accessions(pdbcode : str, strict = True, selenium = False, debug = False) -> dict:
     """
@@ -674,5 +678,98 @@ def iterate_uniprot_details(in_csv : str, chain_cols : list, out_csv : str, deli
     
     #save all this as a new CSV 
     data.to_csv(out_csv, sep="\t", index = False)
+
+parser = PDBParser()
+def get_flanking_info(PDB_file : str, debug : bool = False) -> tuple:
+    """
+        
+    Takes a PDB file and returns flanking information for all the cysteines
+
+    Parameters
+    ----------
+    PDB_file : str
+        The path to the input PDB file.
+    debug : bool, optional
+        Should this function print its output each time.
+
+    Returns
+    -------
+    tuple
+        [0]: Information about flanking residues including sequence, pKas, hydrophobicities, 
+        and charges at pH 7.
+        
+        [1]: Sequences of the chains in the structure.
+        
+    """
+    #catch input errors
+    assert isinstance(PDB_file, str), "str expected for PDB_file, found '" + repr(PDB_file) + "' which is " + repr(type(PDB_file))
+    assert isinstance(debug, bool), "bool expected for debug, found " + repr(type(debug))
     
+    cysteine_list = []
+    with gzip.open(PDB_file, "rt") as unzipped: #open the structure
+        structure = parser.get_structure("struc", unzipped) #parse the structure
+        chain_sequences = {}
+        for chain in structure[0]: #iterate through chains
+            realreslist = [] #make a list to store the residues in a chain
+            length = max([i.id[1] for i in chain]) #determine how long the chain actually is, ignoring gaps
+            res_list = ["!" for i in range(length)] #creating reslist by starting with blank ! marks
+            for index, residue in enumerate(chain):
+                #populating realreslist
+                residue.newresnum = index
+                realreslist.append(residue)
+                
+                #populating res_list, which has gaps
+                resname = residue.get_resname()
+                try: 
+                    if resname != "HOH" and residue.id[1] >= 0: #check residue is not water and has a seq number of 0 or more
+                        res_list[residue.id[1] -1] = threetoone[resname] #compile chain sequence
+                except:
+                    if debug == True: print("res list:",res_list, "residue:", residue)
+                    res_list[residue.id[1] -1] = "!" #otherwise add exclamation marks
+            for residue in realreslist:
+                if residue.get_resname() == "CYS":
+                    flanks = []
+                    for offset in range(-5, 6):
+                        try:
+                            flanks.append(threetoone[realreslist[residue.newresnum + offset].get_resname()])
+                        except:
+                            flanks.append("!")
+                    pKas = []
+                    hyd = []
+                    charge = []
+                    for flank in flanks:
+                        try:
+                            pKas.append(get_pKa[flank])
+                        except:
+                            pKas.append("")
+                        try:
+                            hyd.append(get_hydrophobic7[flank])
+                        except:
+                            hyd.append("")
+                        try:
+                            charge.append(get_charge[flank])
+                        except:
+                            charge.append("")
+                    cysteine_list.append({"PDBid" : PDB_file.split("pdb")[-1].split(".ent")[0],
+                                          "chain" : chain.id,
+                                          "residue" : residue.id[1],
+                                          "flanking residues" : flanks,
+                                          "flanking pKas" : pKas,
+                                          "flanking hydrophobicities": hyd,
+                                          "flanking charges at pH 7": charge})
+                    
+            chain_sequences[chain.id] = "".join(res_list) #join the res_list compiled previously into strings add to a dictionary with the chain letters as keys
     
+    newdata = pd.DataFrame() #new empty dataframe to start building
+    for cysteine in cysteine_list:
+        pdrow = pd.DataFrame([[cysteine["PDBid"], cysteine["chain"], cysteine["residue"]]], columns = ["PDBid","chain", "residue"])
+        addlettersto = []
+        for section in ["flanking residues", "flanking pKas", "flanking hydrophobicities", "flanking charges at pH 7"]: #iterates through the lists in the dictionary created by get_flanking_info()
+                for i in range(len(cysteine[section])): #iterates through each list
+                    #print("i:", i, "- section:", section, "- newrow:", newrow)
+                    pdrow[str(i - 5) + " " + section] = cysteine[section][i] #adds each bit of information on the list as its own column in the empty dataframe, so there is one row
+                    addlettersto.append(str(i - 5) + " " + section)
+        newdata = pd.concat([newdata, pdrow], ignore_index = True).reset_index(drop = True) #concats this new row into a dataframe to build it
+    #print(chain_sequences)
+    return newdata, chain_sequences #output the flanking info as a new dataframe for each cysteine, output the chain sequences as a dicitonary
+
