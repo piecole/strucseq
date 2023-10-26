@@ -226,3 +226,40 @@ str or
     >>> reverse_sequence("QWERTYUIOP", 2, 4)
 
     ('POIUYTREWQ', 7, 9)
+
+### convert_region
+
+convert_region(start_sequence: str, start_region : Union[int, list], end_sequence : str, debug = False) -> dict:
+
+Takes a start_region in start_sequence and returns where this region is in end_sequence. 
+Use biological sequence numbers (start at 1)
+
+#### Parameters
+
+start_sequence : str  
+    The sequence which the known region belongs to.
+
+start_region : int | list
+    The residue or residue range (as a list) that this region occupies.
+
+end_sequence : str  
+    The new sequence where this region should be detected.
+
+debug : bool, optional  
+    Should progress be printed.
+
+#### Returns
+
+dict
+    Contains "start" and "end" as the start and end of the sequence, and "score" 
+    as the alignment score of the new region.
+
+#### Examples
+
+    >>> convert_region("QWERTYUIOP", [2,5], "ASDFGHJKQWERTYUIOSDFGHJK")
+
+    {'start': 10, 'end': 13, 'score': 75.0}
+
+    >>> convert_region("QWERTYUIOP", 7, "ASDFGHJKQWERTYUIOSDFGHJK")
+
+    {'start': 15, 'end': 15, 'score': 72.72727272727273}

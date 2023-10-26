@@ -6,6 +6,7 @@ import lxml
 import numpy as np
 import gzip
 from Bio.PDB import *
+from typing import Union
 
 try:
     from tqdm import tqdm
@@ -1022,3 +1023,149 @@ def reverse_sequence(sequence, seq_start = False, seq_end = False):
     new_start = end - seq_end
     new_end = end - seq_start
     return sequence[::-1], new_start + 1, new_end + 1
+
+def convert_region(start_sequence: str, start_region : Union[int, list], end_sequence : str, debug = False) -> dict:
+    """
+    Takes a start_region in start_sequence and returns where this region is in end_sequence. 
+    Use biological sequence numbers (start at 1)
+
+    Parameters
+    ----------
+    start_sequence : str
+        The sequence which the known region belongs to.
+    start_region : int | list
+        The residue or residue range (as a list) that this region occupies.
+    end_sequence : str
+        The new sequence where this region should be detected.
+    debug : bool, optional
+        Should progress be printed.
+    
+    Returns
+    -------
+    dict
+        Contains "start" and "end" as the start and end of the sequence, and "score" 
+        as the alignment score of the new region.
+
+    """
+    
+    #   Check if start_region is nan, if so, just return NaN
+    if isinstance(start_region, list) == False:
+        if pd.isnull(start_region):
+            return {"start" : np.NaN, "end": np.NaN, "score" : np.NaN}
+    
+    #   Assert some stuff about the sequence
+    assert isinstance(start_sequence, str), "Expected string for start_sequence, got " + repr(type(start_sequence))
+    assert type(start_region) in [list, int], "Expected list or int for start_region, got " + repr(type(start_region))
+    assert isinstance(end_sequence, str), "Expected string for end_sequence, got " + repr(type(end_sequence))
+    
+    #   If only one number is presented for start region, duplicate it to give a range 
+    #   of just one amino acid.
+    try:
+        #   If list of one, duplicate it.
+        if len(start_region) == 1:  
+            start_region.append(start_region[0])      
+            
+        #   If one number in the range is np.NaN, duplicate the other number into that spot.
+        if pd.isnull(start_region[0]):
+            start_region[0] = start_region[0]
+        if pd.isnull(start_region[1]):
+            start_region[1] = start_region[0]
+        #   If either number is now np.NaN, this means both were np.NaN, so just return 
+        #   nan values.
+        if np.NaN in start_region:
+            return {"start" : np.NaN, "end": np.NaN, "score" : np.NaN}
+    except:
+        start_region = [int(start_region), (start_region)] # If not a list, duplicate into a list.
+    start_sequence = "X" + start_sequence #add an X to the begining of start sequence to fix indexing
+    end_sequence = "X" + end_sequence #add an X to the begining of end sequence to fix indexing
+    
+    #  Start saving some residues
+    residues = []
+    try:
+        seq_range = range(start_region[0], start_region[1] + 1) #correct for addition of X and make it inclusive
+    except:
+        raise Exception("""start_region must be number or list of two positive numbers to 
+                        specify a sequence region. Got:""" + repr(start_region) + """ for 
+                        sequence """ + repr(start_sequence))
+        
+    for i in seq_range:
+        residue = get_equivalentresidue(i + 1, start_sequence, end_sequence)
+        residue[0] = residue[0]-1
+        if residue[1] > 4:
+            residue.append(start_sequence[i])
+            residues.append(residue)
+    
+    #do this again in reverse
+    rev_residues = []
+    seq_reversed, new_region_start, new_region_end = reverse_sequence(start_sequence, start_region[0] + 2, start_region[1] + 2)
+    reverse_end_sequence = end_sequence[::-1]
+    for i in range(new_region_start, new_region_end + 1):
+        rev_residue = get_equivalentresidue(i + 1, seq_reversed, reverse_end_sequence)
+        if rev_residue[1] > 4:
+            rev_residue.append(seq_reversed[i])
+            rev_residues.append(rev_residue)
+    
+    #assign scores for every residue in end_sequence
+    end_sequence_scores = [0 for i in end_sequence]
+    end_sequence_flanking = [0 for i in end_sequence]
+        
+    #and in reverse
+    end_sequence_scores_reverse = [np.nan for i in reverse_end_sequence]
+    #reverse the reversed scores
+    for i in rev_residues:
+        i[0] = len(end_sequence_scores) - i[0] #restore the original residue number to each residue
+        end_sequence_scores_reverse[i[0]] = i[1] #add scores to every residue in the output
+    rev_residues = rev_residues[::-1] #reverses the rev_residues so its in the same order as residues
+    #print(residues)
+    
+    #combine forward and reverse residues
+    for residue in residues:
+        end_sequence_scores[residue[0]] = np.nan_to_num(residue[1])
+    for residue in rev_residues:
+        end_sequence_scores[residue[0]] += np.nan_to_num(residue[1])
+    
+    #find the range that the sequence confidently falls under
+    try:
+        max_score = max(end_sequence_scores)
+        first_max_index = False
+        last_max_index = 0
+        last_max_score = 0
+        for index, score in enumerate(end_sequence_scores):
+            if score > max_score * 0.7 and first_max_index == False: #begin the definite range where the score is 80% of the max score
+                first_max_index = index
+                first_max_score = score
+            if score > max_score * 0.7: #end the definite range where the score is 80% of the max score
+                last_max_index = index
+                last_max_score = score
+    except:
+        raise Exception("sequence range not found.")
+    
+    if debug == True:
+        print("well defined bounds:", first_max_index, last_max_index)
+        
+    # Give residues a score based on all the flanking scores in end_sequence
+    for residue in residues:
+        flanking_score = 0
+        for i in range(-5,6):
+            try:
+                new_score = end_sequence_scores[residue[0] + i]
+                if np.isnan(new_score) == False:
+                    flanking_score += new_score
+            except:
+                pass
+        end_sequence_flanking[residue[0]] = flanking_score
+        residue.append(flanking_score)
+    
+    start = first_max_index
+    end = last_max_index
+
+    score = 0
+    numbers = 0
+    for i in range(start, end + 1):
+        if np.isnan(end_sequence_scores[i]) == False:
+            score += end_sequence_scores[i]
+        numbers += 1
+    score = score/numbers
+    score = (score/22)*100
+    
+    return {"start" : start, "end": end, "score" : score}
