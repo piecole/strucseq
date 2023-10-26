@@ -174,8 +174,8 @@ debug : bool, optional
 #### Returns
 
 list   
-    0: converted residue number
-    1: alignment score
+    0: converted residue number  
+    1: alignment score  
 
 #### Examples
 
