@@ -200,11 +200,13 @@ returns where seq_start and seq_end are in the new sequence.
 
 #### Parameters
 
-sequence : str
+sequence : str  
     The sequence to reverse.
-seq_start : int, optional
+
+seq_start : int, optional  
     Region position that will be returned in the new sequence. The default is False.
-seq_end : int, optional
+
+seq_end : int, optional  
     Region position that will be returned in the new sequence. The default is False.
 
 #### Returns
