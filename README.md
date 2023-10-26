@@ -187,6 +187,6 @@ list
 
     [nan, 0]
 
-    >>> get_equivalentresidue(6, "QWERTYUIOP", "ASDFGHJKLQWERTYUIOP")
+    >>> get_equivalentresidue(6, "QWERTYUIOP", "ASDFYGHJYYKLQWERTYUIOP")
 
-    [15, 11]
+    [18, 11]
