@@ -142,32 +142,51 @@ and descriptions.
 ### get_equivalentresidue
 
 get_equivalentresidue(resnum : int, seq1 : str, seq2 : str, flanknum : int = 5, placeholder : str = "!", pass_nan : bool = True, debug : bool = False) -> list:
-    """
-    Takes the specified residue from sequence 1 and uses alignment to get its number 
-    in sequence 2.
 
-    Parameters
-    ----------
-    resnum : int
-        The residue number to convert, starts at 1.
-    seq1 : str
-        The sequence that residue number is from.
-    seq2 : str
-        The sequence to find that residue in.
-    flanknum : int, optional
-        The number of flanking residues to use in the alignment. The default is 5.
-    placeholder : str, optional
-        The placeholder to be used when a residue is missing, such as the beginning 
-        and ends of the sequence. Must be one character. The default is "!".
-    pass_nan : bool, optional
-        Whether to pass or raise an exception when given nan in the sequences
-    debug : bool, optional
-        Whether a message should be printed when failing to find a residue. The default is True.
-        WHY DOES IT FAIL!?
 
-    Returns
-    -------
-    list
-        DESCRIPTION.
+Takes the specified residue from sequence 1 and uses alignment to get its number 
+in sequence 2.
 
-    """
+#### Parameters
+
+resnum : int  
+    The residue number to convert, starts at 1.
+
+seq1 : str  
+    The sequence that residue number is from.
+
+seq2 : str  
+    The sequence to find that residue in.
+
+flanknum : int, optional  
+    The number of flanking residues to use in the alignment. The default is 5.
+
+placeholder : str, optional  
+    The placeholder to be used when a residue is missing, such as the beginning 
+    and ends of the sequence. Must be one character. The default is "!".
+
+pass_nan : bool, optional  
+    Whether to pass or raise an exception when given nan in the sequences
+
+debug : bool, optional  
+    Whether a message should be printed when failing to find a residue. The default is True.
+
+#### Returns
+
+list   
+    0: converted residue number
+    1: alignment score
+
+#### Examples
+
+    get_equivalentresidue(2, "ASDF", "FDSA")
+
+    [3, 7]
+
+    get_equivalentresidue(6, "QWERTYUIOP", "ASDFGHJKLF")
+
+    [nan, 0]
+
+    get_equivalentresidue(6, "QWERTYUIOP", "ASDFGHJKLQWERTYUIOP")
+
+    [15, 11]
