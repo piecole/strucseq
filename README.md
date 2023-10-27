@@ -3,9 +3,9 @@ A python package to fetch and process data between protein structures and sequen
 
 This is very much a work in progress.
 
-## Functions
+# Functions
 
-### get_uniprot_accessions
+## get_uniprot_accessions
 
 ```python
 get_uniprot_accessions(pdbcode, strict, selenium (non functional), debug)
@@ -13,7 +13,7 @@ get_uniprot_accessions(pdbcode, strict, selenium (non functional), debug)
 
 Takes a pdb assession code and accesses the PDB to get the Uniprot assession code of the protein for each chain
 
-#### Parameters
+### Parameters
 
 **pdbcode** : str  
 The 4-letter protein data bank (PDB) code.
@@ -27,13 +27,13 @@ Choose to use selenium to scrabe the browser version, rather than the XML versio
 **debug** : bool, optional  
 Write information to console
 
-#### Returns
+### Returns
 
 **dict**  
 Uniprot accession codes of each chain in the strcture. Key is the chain identifier,
 content is the accession code.
 
-#### Examples
+### Examples
 
 ```python
 >>> get_uniprot_accessions("3ii6")
@@ -46,7 +46,7 @@ content is the accession code.
 'Y': 'P49917'}
 ```
 
-### iterate_uniprot_accessions
+## iterate_uniprot_accessions
 
 ```python
 iterate_uniprot_accessions(in_csv, chain_cols, out_csv, delimiter, debug):
@@ -56,7 +56,7 @@ Takes an input CSV with a PDBid header and specified custom header(s) to get the
 uniprot ID of the chains and saves a CSV with the assession codes and unique structures
 and chains.
 
-#### Parameters
+### Parameters
 
 **in_csv** : str  
 The the input CSV with PDBids that is used to generate accession codes.
@@ -75,7 +75,7 @@ Delimiter of the CSV file, default "\t" tab.
 **debug** : bool, optional  
 Whether to print progess or other notifications
 
-#### Returns
+### Returns
 
 Nothing is returned, but a CSV is saved specifying the uniprot ID of each chain in every structure of the input CSV.
 
@@ -149,7 +149,7 @@ and descriptions.
   'response to X-ray']}
 ```
     
-### get_equivalentresidue
+## get_equivalentresidue
 
 ```python
 get_equivalentresidue(resnum : int, seq1 : str, seq2 : str, flanknum : int = 5, placeholder : str = "!", pass_nan : bool = True, debug : bool = False) -> list:
@@ -158,7 +158,7 @@ get_equivalentresidue(resnum : int, seq1 : str, seq2 : str, flanknum : int = 5, 
 Takes the specified residue from sequence 1 and uses alignment to get its number 
 in sequence 2.
 
-#### Parameters
+### Parameters
 
 **resnum** : int  
     The residue number to convert, starts at 1.
@@ -182,13 +182,13 @@ in sequence 2.
 **debug** : bool, optional  
     Whether a message should be printed when failing to find a residue. The default is True.
 
-#### Returns
+### Returns
 
 **list**   
     0: converted residue number  
     1: alignment score  
 
-#### Examples
+### Examples
 
 ```python
 >>> get_equivalentresidue(2, "ASDF", "FDSA")
@@ -204,7 +204,7 @@ in sequence 2.
 [18, 11]
 ```
 
-### reverse_sequence
+## reverse_sequence
 
 ```python
 reverse_sequence(sequence, seq_start = False, seq_end = False):
@@ -213,7 +213,7 @@ reverse_sequence(sequence, seq_start = False, seq_end = False):
 Takes input characters and reverses it. If seq_start and seq_end are given, function
 returns where seq_start and seq_end are in the new sequence.
 
-#### Parameters
+### Parameters
 
 **sequence** : str  
     The sequence to reverse.
@@ -224,7 +224,7 @@ returns where seq_start and seq_end are in the new sequence.
 **seq_end** : int, optional  
     Region position that will be returned in the new sequence. The default is False.
 
-#### Returns
+### Returns
 
 **str** or  
     **tuple**  
@@ -232,7 +232,7 @@ returns where seq_start and seq_end are in the new sequence.
         [1]: The new start position of the region.  
         [2]: The new end position of the region.
 
-#### Examples
+### Examples
 
     >>> reverse_sequence("QWERTYUIOP")
 
@@ -242,7 +242,7 @@ returns where seq_start and seq_end are in the new sequence.
 
     ('POIUYTREWQ', 7, 9)
 
-### convert_region
+## convert_region
 
 ```python
 convert_region(start_sequence: str, start_region : Union[int, list], end_sequence : str, debug = False) -> dict:
@@ -251,7 +251,7 @@ convert_region(start_sequence: str, start_region : Union[int, list], end_sequenc
 Takes a start_region in start_sequence and returns where this region is in end_sequence. 
 Use biological sequence numbers (start at 1)
 
-#### Parameters
+### Parameters
 
 **start_sequence** : str  
     The sequence which the known region belongs to.
@@ -265,13 +265,13 @@ Use biological sequence numbers (start at 1)
 **debug** : bool, optional  
     Should progress be printed.
 
-#### Returns
+### Returns
 
 **dict**
     Contains "start" and "end" as the start and end of the sequence, and "score" 
     as the alignment score of the new region.
 
-#### Examples
+### Examples
 
 ```python
 >>> convert_region("QWERTYUIOP", [2,5], "ASDFGHJKQWERTYUIOSDFGHJK")
