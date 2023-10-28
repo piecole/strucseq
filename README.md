@@ -147,6 +147,19 @@ and descriptions.
   'positive regulation of phosphatidylserine exposure on apoptotic cell surface',
   'protein localization to site of double-strand break',
   'response to X-ray']}
+
+>>> accessions = get_uniprot_accessions("3ii6")
+    for chain in accessions:
+        details = get_uniprot_details(accessions[chain])
+        print(chain, accessions[chain], details["uniprot name"], details["uniprot abbreviation"])
+
+    A Q13426 DNA repair protein XRCC4 XRCC4_HUMAN
+    B Q13426 DNA repair protein XRCC4 XRCC4_HUMAN
+    C Q13426 DNA repair protein XRCC4 XRCC4_HUMAN
+    D Q13426 DNA repair protein XRCC4 XRCC4_HUMAN
+    X P49917 DNA ligase 4 DNLI4_HUMAN
+    Y P49917 DNA ligase 4 DNLI4_HUMAN
+
 ```
     
 ## get_equivalentresidue
