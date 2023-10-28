@@ -315,7 +315,9 @@ def get_uniprot_details(unicode : str, debug = False) -> dict:
     """
     
     try:
-        print("downloading", "https://rest.uniprot.org/uniprotkb/" + unicode + ".xml")
+        url = "https://www.uniprot.org/uniprot/" + unicode + ".xml"
+        if debug == True:
+            print("downloading", url)
     except:
         raise Exception("Give a uniprot accession code, recieved " + repr(unicode))
 
@@ -324,7 +326,7 @@ def get_uniprot_details(unicode : str, debug = False) -> dict:
         print(f"Extracting Uniprot information from code: {unicode}.")
   
     #   Fetch the xml version of the uniprot site in beautifulsoup
-    soup = BeautifulSoup(requests.get("https://rest.uniprot.org/uniprotkb/" + unicode + ".xml").text, "lxml")
+    soup = BeautifulSoup(requests.get(url).text, "lxml")
     
     #   Get the protein name.
     try:
