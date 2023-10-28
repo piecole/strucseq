@@ -153,12 +153,12 @@ and descriptions.
         details = get_uniprot_details(accessions[chain])
         print(chain, accessions[chain], details["uniprot name"], details["uniprot abbreviation"])
 
-    A Q13426 DNA repair protein XRCC4 XRCC4_HUMAN
-    B Q13426 DNA repair protein XRCC4 XRCC4_HUMAN
-    C Q13426 DNA repair protein XRCC4 XRCC4_HUMAN
-    D Q13426 DNA repair protein XRCC4 XRCC4_HUMAN
-    X P49917 DNA ligase 4 DNLI4_HUMAN
-    Y P49917 DNA ligase 4 DNLI4_HUMAN
+A Q13426 DNA repair protein XRCC4 XRCC4_HUMAN
+B Q13426 DNA repair protein XRCC4 XRCC4_HUMAN
+C Q13426 DNA repair protein XRCC4 XRCC4_HUMAN
+D Q13426 DNA repair protein XRCC4 XRCC4_HUMAN
+X P49917 DNA ligase 4 DNLI4_HUMAN
+Y P49917 DNA ligase 4 DNLI4_HUMAN
 
 ```
     
