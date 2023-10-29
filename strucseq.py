@@ -7,6 +7,7 @@ import numpy as np
 import gzip
 from Bio.PDB import *
 from typing import Union
+import ast
 
 try:
     from tqdm import tqdm
@@ -1171,3 +1172,108 @@ def convert_region(start_sequence: str, start_region : Union[int, list], end_seq
     score = (score/22)*100
     
     return {"start" : start, "end": end, "score" : score}
+
+def int_or_nan(intended_integer):
+    """
+    
+    Parameters
+    ----------
+    intended_integer : anything convertible to int
+        Input that should be converted to int.
+
+    Returns
+    -------
+    int or float
+        Input integer or float if input couldn't be converted.
+
+    """
+    try:
+        return int(intended_integer)
+    except:
+        return np.NaN
+
+def convert_regions(regions : dict, seq1 : str, seq2) -> dict:
+    """
+    Takes a dictionary of significant regions as an input, converts them from sequence 1
+    to sequence 2. If a dict of sequences is given for seq2, then will find the region 
+    in all those sequences.
+
+    Parameters
+    ----------
+    regions : dict or str in dict format
+        Input set of regions to be converted.
+    seq1 : str
+        Sequence the regions are from.
+    seq2 : str or dict
+        Sequence the regions should be converted to.
+
+    Returns
+    -------
+    dict
+        New dictionary of regions that have been converted from seq1 sequence to seq2 
+        sequence.
+
+    """
+    #   Check that none of the inputs are null
+    if pd.isnull(regions) or pd.isnull(seq1) or pd.isnull(seq2):
+        return np.NaN
+    if isinstance(regions, str):
+        regions = ast.literal_eval(regions) # Convert the dictionary string to dict
+    assert isinstance(seq1, str), "Expected str for seq1, got " + repr(type(seq1))
+    
+    #   Check if seq2 is a dictionary, in which case interpret it as multiple sequences to 
+    #   convert to.
+    multiple_target_sequences = False
+    if isinstance(seq2, dict):
+        multiple_target_sequences = True
+    else:
+        assert isinstance(seq2, str), "Expected str or dict for seq2, got " + repr(type(seq2))
+    
+    #   If seq2 is only one sequence, wrap it in a dictionary so it is dealt with the 
+    #   same as if multiple sequences.
+    if multiple_target_sequences == False:
+        seq2 = {"placeholder" : seq2}
+    
+    #   Iterate through the target sequences.
+    new_regions_per_seq2 = {}
+    
+    for target_key in seq2:
+        #   Make a dictionary for storing the edited regions
+        new_regions = {}
+        
+        #   Iterate through the regions.
+        for region in regions:
+            #   Get all the dictionary keys of the regions
+            #print("Here we go")
+            #print(regions[region])
+            keys = regions[region].copy().keys()
+            
+            #   Copy regions for editing
+            new_regions[region] = regions[region].copy()
+            
+            #   If just a position is offered, indicating 1 amino acid
+            if "position" in keys:
+                #   Convert that amino acid position
+                converted = convert_region(seq1, 
+                                           int_or_nan(regions[region]["position"]), 
+                                           seq2[target_key]).copy()
+                new_regions[region]["position"] = converted.copy()["start"]
+                new_regions[region]["score"] = converted.copy()["score"]
+                
+            #   If a begin and end is offered, so usually an amino acid range
+            if "begin" in keys and "end" in keys:
+                converted = convert_region(seq1, 
+                                           [int_or_nan(regions[region]["begin"]), int_or_nan(regions[region]["end"])],
+                                           seq2[target_key])
+                new_regions[region]["begin"] = converted.copy()["start"]
+                new_regions[region]["end"] = converted.copy()["end"]
+                new_regions[region]["score"] = converted.copy()["score"]
+                
+        #   Save this set of regions in into the dictionary of regions for each seq2
+        new_regions_per_seq2[target_key] = new_regions.copy()
+    
+    #   If seq2 was a string, take the output out of the dictionary it was wrapped in.
+    if multiple_target_sequences == False:
+        new_regions_per_seq2 = new_regions_per_seq2["placeholder"]
+    
+    return new_regions_per_seq2
