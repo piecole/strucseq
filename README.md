@@ -261,7 +261,8 @@ returns where seq_start and seq_end are in the new sequence.
 convert_region(start_sequence: str, start_region : Union[int, list], end_sequence : str, debug = False) -> dict:
 ```
 
-Takes a start_region in start_sequence and returns where this region is in end_sequence. 
+
+Takes a range referencing a region in a start sequence and returns where this region is in an end sequence. Slower than get_equivalentresidue but much more versatile due to ability to convert regions.
 Use biological sequence numbers (start at 1)
 
 ### Parameters
