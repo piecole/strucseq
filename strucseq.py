@@ -1277,3 +1277,50 @@ def convert_regions(regions : dict, seq1 : str, seq2) -> dict:
         new_regions_per_seq2 = new_regions_per_seq2["placeholder"]
     
     return new_regions_per_seq2
+
+def get_uniprot_sequence(unicode : str, pass_nan : bool = True, pass_no_output = True, debug : bool = True) -> str:
+    """
+    When given a uniprot accession code will return the sequence of the protein.
+
+    Parameters
+    ----------
+    unicode : str
+        Uniprot accession code.
+    pass_nan : bool, optional
+        As long as True, input of nan will be passed, otherwise will raise exception.
+    pass_no_output : bool, optional
+        If false, output of "" will raise exception.
+    debug : bool, optional
+        Should this function print as it goes.
+
+    Returns
+    -------
+    str
+        Seqeuence of protein to which uniprot accession was given.
+
+    """
+    # Check exceptions with the inputs
+    for i in [pass_nan, pass_no_output, debug]:
+        assert isinstance(i, bool), "get_uniprot_sequence() options must be bools, found " + repr(type(i))
+    if pass_nan == False and pd.isnull(unicode):
+        raise Exception("Given nan as unicode, which is not allowed if pass_nan == False.")
+    if pd.isnull(unicode) == False:
+        assert isinstance(unicode, str), "Expected string or nan for unicode, got '" + repr(unicode) + "', which is " + repr(type(unicode))
+        
+        # Fetch the sequence of the accession given
+        if debug == True: print("getting", "https://rest.uniprot.org/uniprotkb/" + unicode + ".fasta")
+        soup = requests.get("https://rest.uniprot.org/uniprotkb/" + unicode + ".fasta").text
+        output = "".join(soup.split("\n")[1:-1])
+        
+        # If pass_no_output = False then raise an exception if the output is ""
+        if pass_no_output == False and output == "":
+            raise Exception(f"No sequence found for {unicode} and pass_no_output is False.")
+        
+        # Otherwise a message if output is ""
+        if output == "" and debug == True:
+            print(f"No sequence found for {unicode}.")
+
+        return output
+    
+    else: # If input was nan and pass_nan = True then print this message
+        if debug == True: print("Given nan as unicode to function get_uniprot_sequence().")
