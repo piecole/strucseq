@@ -378,7 +378,7 @@ in all those sequences.
 ## get_oximouse_data
 
 ```python
-def get_oximouse_data(age : str):
+get_oximouse_data(age : str):
 ```
     
  Fetch oximouse data as a dataframe. Age can be "aged", "young", or "detected".
@@ -393,7 +393,7 @@ Xiao, H., Jedrychowski, M. P., Schweppe, D. K., Huttlin, E. L., Yu, Q., Heppner,
 
 ### Parameters
 
-***age*** : str  
+**age** : str  
     "aged", "young", or "detected"
 
 ### Returns
