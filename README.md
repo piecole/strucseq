@@ -372,3 +372,56 @@ in all those sequences.
  (1, 'Ubiquitin-like'): {'begin': 310, 'end': 327, 'score': 51.26262626262626}}
 
 ```
+
+
+## get_oximouse_data
+
+```python
+def get_oximouse_data(age : str):
+```
+    
+ Fetch oximouse data as a dataframe. Age can be "aged", "young", or "detected".
+Old or young will return the data for the aged or young mice, respectively.
+Detected returns a list of every cysteine that was detected with oximouse.
+Oximouse data maps oxidation of specific cysteines in different body parts in
+aged or young mice.
+
+Reference:  
+Xiao, H., Jedrychowski, M. P., Schweppe, D. K., Huttlin, E. L., Yu, Q., Heppner, D. E., Li, J., Long, J., Mills, E. L., Szpyt, J., He, Z., Du, G., Garrity, R., Reddy, A., Vaites, L. P., Paulo, J. A., Zhang, T., Gray, N. S., Gygi, S. P., & Chouchani, E. T. (2020). A Quantitative Tissue-Specific Landscape of Protein Redox Regulation during Aging. Cell, 180(5), 968-983.e24. https://doi.org/10.1016/j.cell.2020.02.012
+
+
+### Parameters
+
+***age*** : str  
+    "aged", "young", or "detected"
+
+### Returns
+Oximouse dataset as a pandas dataframe
+
+### Examples
+
+```python
+
+>>> old = get_oximouse_data("aged")
+
+Downloaded aged oximouse data. Please cite
+Xiao, H., Jedrychowski, M. P., Schweppe, D. K., Huttlin, E. L., Yu, Q., Heppner, D. E., Li, J., Long, J., Mills, E. L., Szpyt, J., He, Z., Du, G., Garrity, R., Reddy, A., Vaites, L. P., Paulo, J. A., Zhang, T., Gray, N. S., Gygi, S. P., & Chouchani, E. T. (2020). A Quantitative Tissue-Specific Landscape of Protein Redox Regulation during Aging. Cell, 180(5), 968-983.e24. https://doi.org/10.1016/j.cell.2020.02.012
+
+
+>>> old
+
+Uniprot ID aged	Gene symbol aged	Site aged	ModScore aged	Motif aged	BAT aged	Brain aged	Epi aged	Heart aged	Kidney aged	...	BAT dev aged	Brain dev aged	Epi dev aged	Heart dev aged	Kidney dev aged	Liver dev aged	Lung dev aged	SKM dev aged	Spleen dev aged	SubQ dev aged
+0	A0JNU3	ASPG	503	1000.0	DVGTELCRLASRG	NaN	NaN	NaN	NaN	3.48	...	NaN	NaN	NaN	NaN	0.5	0.21	NaN	NaN	NaN	NaN
+1	A0JNU3	ASPG	558	1000.0	SFKDSVCAQPQPH	NaN	NaN	NaN	NaN	NaN	...	NaN	NaN	NaN	NaN	NaN	0.16	NaN	NaN	NaN	NaN
+2	A0JNU3	ASPG	198	1000.0	RRFAAFCSPNLPP	NaN	NaN	NaN	NaN	NaN	...	NaN	NaN	NaN	NaN	NaN	2.66	NaN	NaN	NaN	NaN
+3	A0JNU3	ASPG	376	1000.0	QDGMLGCRVAWLL	NaN	NaN	NaN	NaN	NaN	...	NaN	NaN	NaN	NaN	NaN	0.21	NaN	NaN	NaN	NaN
+4	A1BN54	ACTN1	774	1000.0	TDDFRACLISMGY	0.31	7.02	10.72	7.29	2.7	...	0.29	0.97	0.9	0.87	0.45	0.71	0.43	NaN	9.83	2.55
+...	...	...	...	...	...	...	...	...	...	...	...	...	...	...	...	...	...	...	...	...	...
+25924	G5E8Z3	2310050C09RIK	278	0.0	CDHEDDCCCxxxx	NaN	NaN	NaN	NaN	NaN	...	NaN	NaN	NaN	NaN	NaN	NaN	NaN	0.95	NaN	NaN
+25925	P01027	C3	693	0.0	DKGLRKCCEDGMR	NaN	NaN	3.95	NaN	NaN	...	NaN	NaN	3.94	NaN	NaN	NaN	NaN	NaN	NaN	NaN
+25926	P10605	CTSB	108	0.0	QGSCGSCWAFGAV	NaN	NaN	NaN	NaN	22.82	...	NaN	NaN	NaN	NaN	1.38	NaN	NaN	NaN	NaN	NaN
+25927	Q80W15	IGFBPL1	57	0.0	ARDECGCCARCLG	NaN	NaN	NaN	NaN	NaN	...	NaN	NaN	NaN	NaN	NaN	NaN	NaN	NaN	NaN	2.03
+25928	Q8CG65	SSPO	2307	0.0	SPSQLRCGSGECL	NaN	NaN	NaN	NaN	NaN	...	NaN	NaN	NaN	NaN	NaN	NaN	1.64	NaN	NaN	NaN
+25929 rows × 28 columns
+
+```

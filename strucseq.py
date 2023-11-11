@@ -1354,3 +1354,29 @@ def separatevariance(input, separator, var_addon):
         data[col + var_addon] = data[col].apply(lambda x : plusminusorNaN(x, separator)[1])
         data[col] = data[col].apply(lambda x : plusminusorNaN(x, separator)[0])
     return data
+
+def get_oximouse_data(age : str):
+    """
+    Fetch oximouse data as a dataframe. Age can be "aged", "young", or "detected".
+    Old or young will return the data for the aged or young mice, respectively.
+    Detected returns a list of every cysteine that was detected with oximouse.
+    Oximouse data maps oxidation of specific cysteines in different body parts in
+    aged or young mice.
+    Reference:
+    Xiao, H., Jedrychowski, M. P., Schweppe, D. K., Huttlin, E. L., Yu, Q., Heppner, D. E., Li, J., Long, J., Mills, E. L., Szpyt, J., He, Z., Du, G., Garrity, R., Reddy, A., Vaites, L. P., Paulo, J. A., Zhang, T., Gray, N. S., Gygi, S. P., & Chouchani, E. T. (2020). A Quantitative Tissue-Specific Landscape of Protein Redox Regulation during Aging. Cell, 180(5), 968-983.e24. https://doi.org/10.1016/j.cell.2020.02.012
+    """
+    if age == "aged":
+        df = pd.read_csv("https://piecole.com/data/oximouse_sensitive_old.txt", sep = "\t")
+    elif age == "young":
+        df = pd.read_csv("https://piecole.com/data/oximouse_sensitive_young.txt", sep = "\t")
+    elif age == "detected":
+        df = pd.read_csv("https://piecole.com/data/oximouse_all_cysteines_detected.txt", sep = "\t")
+    else:
+        raise Exception("age must be 'aged', 'young', or 'detected'.")
+    #  Split data into measurement + variance
+    df = separatevariance(df, "±", " dev").add_suffix(" aged")
+
+    print(f"Downloaded {age} oximouse data. Please cite:")
+    print("Xiao, H., Jedrychowski, M. P., Schweppe, D. K., Huttlin, E. L., Yu, Q., Heppner, D. E., Li, J., Long, J., Mills, E. L., Szpyt, J., He, Z., Du, G., Garrity, R., Reddy, A., Vaites, L. P., Paulo, J. A., Zhang, T., Gray, N. S., Gygi, S. P., & Chouchani, E. T. (2020). A Quantitative Tissue-Specific Landscape of Protein Redox Regulation during Aging. Cell, 180(5), 968-983.e24. https://doi.org/10.1016/j.cell.2020.02.012")
+
+    return df
