@@ -1358,7 +1358,7 @@ def separatevariance(input, separator, var_addon):
 def get_oximouse_data(age : str):
     """
     Fetch oximouse data as a dataframe. Age can be "aged", "young", or "detected".
-    Old or young will return the data for the aged or young mice, respectively.
+    Aged or young will return the data for the aged or young mice, respectively.
     Detected returns a list of every cysteine that was detected with oximouse.
     Oximouse data maps oxidation of specific cysteines in different body parts in
     aged or young mice.

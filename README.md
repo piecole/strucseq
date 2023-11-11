@@ -381,7 +381,7 @@ def get_oximouse_data(age : str):
 ```
     
  Fetch oximouse data as a dataframe. Age can be "aged", "young", or "detected".
-Old or young will return the data for the aged or young mice, respectively.
+Aged or young will return the data for the aged or young mice, respectively.
 Detected returns a list of every cysteine that was detected with oximouse.
 Oximouse data maps oxidation of specific cysteines in different body parts in
 aged or young mice.
@@ -406,7 +406,6 @@ Oximouse dataset as a pandas dataframe
 
 Downloaded aged oximouse data. Please cite
 Xiao, H., Jedrychowski, M. P., Schweppe, D. K., Huttlin, E. L., Yu, Q., Heppner, D. E., Li, J., Long, J., Mills, E. L., Szpyt, J., He, Z., Du, G., Garrity, R., Reddy, A., Vaites, L. P., Paulo, J. A., Zhang, T., Gray, N. S., Gygi, S. P., & Chouchani, E. T. (2020). A Quantitative Tissue-Specific Landscape of Protein Redox Regulation during Aging. Cell, 180(5), 968-983.e24. https://doi.org/10.1016/j.cell.2020.02.012
-
 
 >>> old
 
