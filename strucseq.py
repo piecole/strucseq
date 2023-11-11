@@ -1355,6 +1355,7 @@ def separatevariance(input, separator, var_addon):
         data[col] = data[col].apply(lambda x : plusminusorNaN(x, separator)[0])
     return data
 
+
 def get_oximouse_data(age : str):
     """
     Fetch oximouse data as a dataframe. Age can be "aged", "young", or "detected".
