@@ -1324,3 +1324,33 @@ def get_uniprot_sequence(unicode : str, pass_nan : bool = True, pass_no_output =
     
     else: # If input was nan and pass_nan = True then print this message
         if debug == True: print("Given nan as unicode to function get_uniprot_sequence().")
+
+def plusminusorNaN(input, separator):
+    """
+    This function splits a number with a combined deviation separated (e.g. by ±) into a list 
+    with two seperate numbers, or otherwise returns an extra NaN if there is no ±
+    """
+    try:
+        return input.split(separator)
+    except:
+        return [input, np.NaN]
+
+def separatevariance(input, separator, var_addon):
+    """
+    Takes a pandas dataframe and separates (e.g. by ±) variance into their own columns with a 
+    custom header addon.
+    """
+    data = input
+    tosplit = []
+    for col in data:
+        for bit in data[col]:
+            try:
+                if separator in bit:
+                    tosplit.append(col)
+                    break
+            except:
+                pass
+    for col in tosplit:
+        data[col + var_addon] = data[col].apply(lambda x : plusminusorNaN(x, separator)[1])
+        data[col] = data[col].apply(lambda x : plusminusorNaN(x, separator)[0])
+    return data
