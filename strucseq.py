@@ -10,11 +10,17 @@ from typing import Union
 import ast
 
 try:
+    from rcsbsearchapi.search import PDBquery
+except:
+    print("rcsbsearchapi not installed, some functions may not work.")
+
+try:
     from tqdm import tqdm
     tqdm.pandas()
 except:
     def tqdm(iterator, *args, **kwargs):
         return iterator
+    print("tqdm not installed, progress bars will not work.")
     
 alphabet = ["A","B","C","D","E","F","G","H","I","J","K","L","M","N","O","P","Q","R","S","T","U","V","W","X","Y","Z", "DCY"]
 threeletter = ["ALA","DCY","CYS","ASP","GLU","PHE","GLY","HIS","ILE","JXX","LYS","LEU","MET","ASN","OXX","PRO","GLN","ARG","SER","THR","MSE","VAL","TRP","TPO","TYR","SEP"]
@@ -1381,3 +1387,17 @@ def get_oximouse_data(age : str):
     print("Xiao, H., Jedrychowski, M. P., Schweppe, D. K., Huttlin, E. L., Yu, Q., Heppner, D. E., Li, J., Long, J., Mills, E. L., Szpyt, J., He, Z., Du, G., Garrity, R., Reddy, A., Vaites, L. P., Paulo, J. A., Zhang, T., Gray, N. S., Gygi, S. P., & Chouchani, E. T. (2020). A Quantitative Tissue-Specific Landscape of Protein Redox Regulation during Aging. Cell, 180(5), 968-983.e24. https://doi.org/10.1016/j.cell.2020.02.012")
 
     return df
+
+def PDBsearch(query : str) -> list:
+    """
+    Takes a query and returns a list of PDB IDs that match that query.
+    """
+    #   Check input is a string
+    assert isinstance(query, str), "Expected str for query, got " + repr(type(query))
+    
+    # Make the query
+    query = PDBquery(query)
+    # Execute the query
+    results = set(query())
+
+    return results

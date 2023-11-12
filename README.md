@@ -335,7 +335,7 @@ Use biological sequence numbers (start at 1)
 ## convert_regions
 
 ```python
-convert_regions(regions : dict, seq1 : str, seq2) -> dict:
+convert_regions(regions : dict, seq1 : str, seq2) -> dict
 ```
 
 Takes a dictionary of significant regions as an input, converts them from sequence 1
@@ -378,7 +378,7 @@ in all those sequences.
 ## get_oximouse_data
 
 ```python
-get_oximouse_data(age : str):
+get_oximouse_data(age : str)
 ```
     
  Fetch oximouse data as a dataframe. Age can be "aged", "young", or "detected".
