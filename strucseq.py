@@ -10,7 +10,7 @@ from typing import Union
 import ast
 
 try:
-    from rcsbsearchapi.search import PDBquery
+    from rcsbsearchapi.search import TextQuery as PDBquery
 except:
     print("rcsbsearchapi not installed, some functions may not work.")
 

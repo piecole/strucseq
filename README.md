@@ -255,7 +255,7 @@ str
 ## reverse_sequence
 
 ```python
-reverse_sequence(sequence, seq_start = False, seq_end = False):
+reverse_sequence(sequence, seq_start = False, seq_end = False)
 ```
 
 Takes input characters and reverses it. If seq_start and seq_end are given, function
@@ -293,7 +293,7 @@ returns where seq_start and seq_end are in the new sequence.
 ## convert_region
 
 ```python
-convert_region(start_sequence: str, start_region : Union[int, list], end_sequence : str, debug = False) -> dict:
+convert_region(start_sequence: str, start_region : Union[int, list], end_sequence : str, debug = False) -> dict
 ```
 
 
