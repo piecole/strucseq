@@ -1,0 +1,7 @@
+README.md
+setup.py
+strucsec.egg-info/PKG-INFO
+strucsec.egg-info/SOURCES.txt
+strucsec.egg-info/dependency_links.txt
+strucsec.egg-info/requires.txt
+strucsec.egg-info/top_level.txt

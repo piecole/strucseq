@@ -26,6 +26,13 @@ alphabet = ["A","B","C","D","E","F","G","H","I","J","K","L","M","N","O","P","Q",
 threeletter = ["ALA","DCY","CYS","ASP","GLU","PHE","GLY","HIS","ILE","JXX","LYS","LEU","MET","ASN","OXX","PRO","GLN","ARG","SER","THR","MSE","VAL","TRP","TPO","TYR","SEP"]
 threetoone = dict(zip(threeletter, alphabet))
 
+def parse_folder(input_folder : str):
+    assert isinstance(input_folder, str), "str expected for input_folder, got" + repr(type(input_folder))
+    input_folder = input_folder.replace("\\", "/")
+    if input_folder[-1] != "/":
+        input_folder = input_folder + "/"
+    return input_folder
+
 get_pKa = { #this dictioary defines the pKas of amino acid side chains
     #according to: https://www.sigmaaldrich.com/life-science/metabolomics/learning-center/amino-acid-reference-chart.html#prop
     "R": 12.48, "D": 3.65, "C": 8.18, "E": 4.25, "H": 6.00, "K": 10.53, "Y": 10.07, "U":1, "X":5.9, "Z":5.6, "DCY":8.18
@@ -1385,7 +1392,7 @@ def get_oximouse_data(age : str):
     else:
         raise Exception("age must be 'aged', 'young', or 'detected'.")
     #  Split data into measurement + variance
-    df = separatevariance(df, "±", " dev").add_suffix(" aged")
+    df = separatevariance(df, "±", " dev")
 
     print(f"Downloaded {age} oximouse data. Please cite:")
     print("Xiao, H., Jedrychowski, M. P., Schweppe, D. K., Huttlin, E. L., Yu, Q., Heppner, D. E., Li, J., Long, J., Mills, E. L., Szpyt, J., He, Z., Du, G., Garrity, R., Reddy, A., Vaites, L. P., Paulo, J. A., Zhang, T., Gray, N. S., Gygi, S. P., & Chouchani, E. T. (2020). A Quantitative Tissue-Specific Landscape of Protein Redox Regulation during Aging. Cell, 180(5), 968-983.e24. https://doi.org/10.1016/j.cell.2020.02.012")
@@ -1397,7 +1404,7 @@ def get_alphafold_structure(uniprot_code, folder):
     url = "https://alphafold.ebi.ac.uk/files/AF-" + uniprot_code + "-F1-model_v4.pdb"
     data = requests.get(url, allow_redirects=True)
     # Save the structure
-    open(folder + uniprot_code + ".pdb", 'wb').write(data.content)
+    open(parse_folder(folder) + uniprot_code + ".pdb", 'wb').write(data.content)
 
 def PDBsearch(query : str) -> list:
     """
