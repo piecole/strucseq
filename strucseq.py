@@ -136,7 +136,7 @@ def get_uniprot_accessions(pdbcode : str, strict = True, selenium = False, debug
 
 
 #   OLD VERSION OF THE FUNCTION:
-def iterate_uniprot_accessions(in_csv : str, chain_cols : list, out_csv : str, delimiter = "\t", rows : str = 10000000000000, debug = True):
+def iterate_uniprot_accessions_OLD(in_csv : str, chain_cols : list, out_csv : str, delimiter = "\t", rows : str = 10000000000000, debug = True):
     """
     Takes an input CSV with a PDBid header and some custom headers to get the chains from
     and returns a csv with the assession codes and unique structures and chains.
@@ -205,7 +205,7 @@ def iterate_uniprot_accessions(in_csv : str, chain_cols : list, out_csv : str, d
                 e = e + 1
         i = i + 1
     
-    uniprotpd = uniprotpd.append(previous_file)
+    uniprotpd = pd.concat([uniprotpd, previous_file])
     try:
         uniprotpd.to_csv(out_csv, sep=delimiter, index = False)
     except:
@@ -292,7 +292,7 @@ def iterate_uniprot_accessions(in_csv : str, chain_cols, out_csv : str, delimite
             e = e + 1
 
     
-    uniprotpd = uniprotpd.append(previous_file)
+    uniprotpd = pd.concat([uniprotpd, previous_file])
     try:
         uniprotpd.to_csv(out_csv, sep=delimiter, index = False)
     except:
@@ -487,7 +487,7 @@ def get_uniprot_details(unicode : str, debug = False) -> dict:
     return output
 
 #OLD TOO SPECIFIC CODE:
-def iterate_uniprot_details(in_csv : str, out_csv : str, uniprot_csv : str = None, species : str = None, debug = True):
+def iterate_uniprot_details_OLD(in_csv : str, out_csv : str, uniprot_csv : str = None, species : str = None, debug = True):
     """
     Takes an input CSV, uses chain uniprot accessions to add uniprot data to a screen
     product, which is then output as another CSV.
@@ -574,12 +574,17 @@ def iterate_uniprot_details(in_csv : str, out_csv : str, uniprot_csv : str = Non
         #print(dex, "/", uniqueuniprots.size) #indicates the progress
         dex = dex + 1
         
-        if len(row["uniprot"]) > 4:
-            newinfo = get_uniprot_details(row["uniprot"]) #gets uniprot information as a dictionary
-            newinfo["uniprot"] = row["uniprot"] #adds the uniprot accession code to that dictionary
-            #creates a 1 row dataframe of that dictionary, with the keys as the columns 
+        if len(row["uniprot"]) > 4: # Check the uniprot code is valid
+            # Get uniprot information as a dictionary
+            newinfo = get_uniprot_details(row["uniprot"])
+            # Add the uniprot accession code to that dictionary
+            newinfo["uniprot"] = row["uniprot"]
+            # Create a 1 row dataframe of that dictionary, with the keys as the columns 
+            for i in newinfo:
+                print(f"{i}: {newinfo[i]}")
             newinfo = pd.DataFrame([newinfo],  columns = newinfo.keys())
-            dataset = dataset.append(newinfo, ignore_index = True) # adds 1 row to the dataset dataframe
+            # Combine that with the previously constructed dataframe
+            dataset = pd.concat([dataset, newinfo], ignore_index = True) # adds 1 row to the dataset dataframe
         else:
             if debug == True:
                 print("not a uniprot accession:", row["uniprot"])
@@ -602,7 +607,6 @@ def iterate_uniprot_details(in_csv : str, out_csv : str, uniprot_csv : str = Non
     #save all this as a new CSV 
     data.to_csv(out_csv, sep="\t", index = False)
     
-#CHANGE SCREEN TO REFLECT CHANGE
 def iterate_uniprot_details(in_csv : str, chain_cols : list, out_csv : str, delimiter : str = "\t", uniprot_csv : str = None, species : str = None, debug = True):
     """
     Takes an input pandas DataFrame or CSV file, uses uniprot accessions and provided chain column(s)
@@ -706,7 +710,7 @@ def iterate_uniprot_details(in_csv : str, chain_cols : list, out_csv : str, deli
             newinfo["uniprot"] = row["uniprot"] #adds the uniprot accession code to that dictionary
             #creates a 1 row dataframe of that dictionary, with the keys as the columns 
             newinfo = pd.DataFrame([newinfo],  columns = newinfo.keys())
-            dataset = dataset.append(newinfo, ignore_index = True) # adds 1 row to the dataset dataframe
+            dataset = pd.concat([dataset, newinfo], ignore_index = True) # adds 1 row to the dataset dataframe
         else:
             if debug == True:
                 print("not a uniprot accession:", row["uniprot"])
@@ -861,6 +865,7 @@ def get_residues(residue : str, flanknum : int, sequence : str, placeholder : st
     
     #the residue number is the actual number rather the list-index number
     reslist = {} #make the dictionary to fill up
+    print("residue:", residue, "flanknum:", flanknum, "sequence:", sequence, "placeholder:", placeholder)
     sequence = "".join([placeholder for i in range(flanknum)]) + sequence
     for position, letter in enumerate(str(sequence)): #iterate through the letters in the sequence
         if(letter == residue): #check that the letter is a cysteine? allowing return of any residue caused problems
@@ -1361,7 +1366,6 @@ def separatevariance(input, separator, var_addon):
         data[col] = data[col].apply(lambda x : plusminusorNaN(x, separator)[0])
     return data
 
-
 def get_oximouse_data(age : str):
     """
     Fetch oximouse data as a dataframe. Age can be "aged", "young", or "detected".
@@ -1387,6 +1391,13 @@ def get_oximouse_data(age : str):
     print("Xiao, H., Jedrychowski, M. P., Schweppe, D. K., Huttlin, E. L., Yu, Q., Heppner, D. E., Li, J., Long, J., Mills, E. L., Szpyt, J., He, Z., Du, G., Garrity, R., Reddy, A., Vaites, L. P., Paulo, J. A., Zhang, T., Gray, N. S., Gygi, S. P., & Chouchani, E. T. (2020). A Quantitative Tissue-Specific Landscape of Protein Redox Regulation during Aging. Cell, 180(5), 968-983.e24. https://doi.org/10.1016/j.cell.2020.02.012")
 
     return df
+
+def get_alphafold_structure(uniprot_code, folder):
+    # Get the structure
+    url = "https://alphafold.ebi.ac.uk/files/AF-" + uniprot_code + "-F1-model_v4.pdb"
+    data = requests.get(url, allow_redirects=True)
+    # Save the structure
+    open(folder + uniprot_code + ".pdb", 'wb').write(data.content)
 
 def PDBsearch(query : str) -> list:
     """
