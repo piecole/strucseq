@@ -1390,7 +1390,7 @@ def get_oximouse_data(age : str):
     elif age == "detected":
         df = pd.read_csv("https://piecole.com/data/oximouse_all_cysteines_detected.txt", sep = "\t")
     else:
-        raise Exception("age must be 'aged', 'young', or 'detected'.")
+        raise Exception("age must be 'aged', 'young', or 'detected'. Given: " + repr(age) + ".")
     #  Split data into measurement + variance
     df = separatevariance(df, "±", " dev")
 
