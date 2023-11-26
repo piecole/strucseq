@@ -2,12 +2,12 @@ import time
 import requests
 from bs4 import BeautifulSoup
 import pandas as pd
-import lxml
 import numpy as np
 import gzip
 from Bio.PDB import *
 from typing import Union
 import ast
+import os
 
 try:
     from rcsbsearchapi.search import TextQuery as PDBquery
@@ -26,11 +26,17 @@ alphabet = ["A","B","C","D","E","F","G","H","I","J","K","L","M","N","O","P","Q",
 threeletter = ["ALA","DCY","CYS","ASP","GLU","PHE","GLY","HIS","ILE","JXX","LYS","LEU","MET","ASN","OXX","PRO","GLN","ARG","SER","THR","MSE","VAL","TRP","TPO","TYR","SEP"]
 threetoone = dict(zip(threeletter, alphabet))
 
+# Fix forward slashes in filepaths and create missing folders
 def parse_folder(input_folder : str):
     assert isinstance(input_folder, str), "str expected for input_folder, got" + repr(type(input_folder))
     input_folder = input_folder.replace("\\", "/")
     if input_folder[-1] != "/":
         input_folder = input_folder + "/"
+    
+    # Create missing folder
+    if not os.path.exists(input_folder):
+        os.makedirs(input_folder)
+
     return input_folder
 
 get_pKa = { #this dictioary defines the pKas of amino acid side chains
@@ -1399,12 +1405,30 @@ def get_oximouse_data(age : str):
 
     return df
 
-def get_alphafold_structure(uniprot_code, folder):
+def get_alphafold_structure(uniprot_code, folder, strict = False):
+    folder = parse_folder(folder)
+
+    # Check whether the structure exists
+    if os.path.exists(folder + uniprot_code + ".pdb"):
+        print("Already have structure for " + uniprot_code + ".")
+        return
+
     # Get the structure
+    print("Downloading structure for " + uniprot_code + " from AlphaFold. Please cite: ")
+    print("Jumper, J., Evans, R., Pritzel, A. et al. Highly accurate protein structure prediction with AlphaFold. Nature 596, 583–589 (2021). https://doi.org/10.1038/s41586-021-03819-2")
+
     url = "https://alphafold.ebi.ac.uk/files/AF-" + uniprot_code + "-F1-model_v4.pdb"
     data = requests.get(url, allow_redirects=True)
+
+    if "NoSuchKey" in str(data.content):
+        if strict:
+            raise Exception("AlphaFold structure for " + uniprot_code + " not found.")
+        else:
+            print("AlphaFold structure for " + uniprot_code + " not found.")
+            return
+
     # Save the structure
-    open(parse_folder(folder) + uniprot_code + ".pdb", 'wb').write(data.content)
+    open(folder + uniprot_code + ".pdb", 'wb').write(data.content)
 
 def PDBsearch(query : str) -> list:
     """
