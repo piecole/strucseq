@@ -1405,18 +1405,18 @@ def get_oximouse_data(age : str):
 
     return df
 
-def get_alphafold_structure(uniprot_code, folder, strict = False):
+def get_alphafold_structure(uniprot_code, folder, strict = False, debug = False):
     folder = parse_folder(folder)
 
     # Check whether the structure exists
     if os.path.exists(folder + uniprot_code + ".pdb"):
-        print("Already have structure for " + uniprot_code + ".")
+        if debug:
+            print("Already have structure for " + uniprot_code + ".")
         return
 
     # Get the structure
     print("Downloading structure for " + uniprot_code + " from AlphaFold. Please cite: ")
     print("Jumper, J., Evans, R., Pritzel, A. et al. Highly accurate protein structure prediction with AlphaFold. Nature 596, 583–589 (2021). https://doi.org/10.1038/s41586-021-03819-2")
-
     url = "https://alphafold.ebi.ac.uk/files/AF-" + uniprot_code + "-F1-model_v4.pdb"
     data = requests.get(url, allow_redirects=True)
 
@@ -1424,7 +1424,8 @@ def get_alphafold_structure(uniprot_code, folder, strict = False):
         if strict:
             raise Exception("AlphaFold structure for " + uniprot_code + " not found.")
         else:
-            print("AlphaFold structure for " + uniprot_code + " not found.")
+            if debug:
+                print("AlphaFold structure for " + uniprot_code + " not found.")
             return
 
     # Save the structure
