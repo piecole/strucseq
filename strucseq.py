@@ -8,6 +8,8 @@ from Bio.PDB import *
 from typing import Union
 import ast
 import os
+import glob
+import shutil
 
 try:
     from rcsbsearchapi.search import TextQuery as PDBquery
@@ -1405,11 +1407,11 @@ def get_oximouse_data(age : str):
 
     return df
 
-def get_alphafold_structure(uniprot_code, folder, strict = False, debug = False):
+def get_alphafold_structure(uniprot_code, folder, extension = "ent", strict = False, debug = False):
     folder = parse_folder(folder)
 
     # Check whether the structure exists
-    if os.path.exists(folder + uniprot_code + ".pdb"):
+    if os.path.exists(folder + uniprot_code + "." + extension):
         if debug:
             print("Already have structure for " + uniprot_code + ".")
         return
@@ -1429,7 +1431,7 @@ def get_alphafold_structure(uniprot_code, folder, strict = False, debug = False)
             return
 
     # Save the structure
-    open(folder + uniprot_code + ".pdb", 'wb').write(data.content)
+    open(folder + uniprot_code + "." + extension, 'wb').write(data.content)
 
 def PDBsearch(query : str) -> list:
     """
@@ -1447,30 +1449,57 @@ def PDBsearch(query : str) -> list:
 
 import propka.run as pk
 
-def dopropka(input, check = True): #checks if a propka file exists, if not then it attempts to make compute one
-    print("calling PROPKA at", time.strftime("%H:%M:%S", time.localtime()))
-    worked = False
+def try_gzip(path, *args):
+    """
+    Takes a path to a file and tries to open it as a gzip file. Returns the unzipped file if it
+    works, otherwise returns the file.
+    """
     try:
-        with open("propka/pdb" + input + ".pka", mode = "r") as newfile: #check if file exists
-            if check == True:
-                print("propka/pdb" + input + ".pka already exists")
+        with gzip.open(path, *args) as f:
+            return f
+    except:
+        with open(path, "rt") as f:
+            return f
+
+def dopropka(input, structure_folder = "pdb", structure_extension = "ent", propka_folder = "propka/", check = True):
+    """
+    Checks if a propka file exists, if not then it attempts to make compute one
+    """
+    
+    worked = False
+
+    propka_folder = parse_folder(propka_folder)
+    propka_path = propka_folder + input + ".pka"
+    # Check if that exists
+    if os.path.exists(propka_path):
+        print(propka_path + " already exists.")
+        return
+    else:
+        structure_folder = parse_folder(structure_folder)
+        try:
+            path = glob.glob(structure_folder + "/**/" + input + "*.*" + structure_extension + "*", recursive = True)[0]
+        except:
+            print("No structure found for " + input + ".")
+            return
+        print("Calculating pKas with PROPKA and saving to file. Please cite:")
+        print("Improved Treatment of Ligands and Coupling Effects in Empirical Calculation and Rationalization of pKa Values. Chresten R. Søndergaard, Mats H. M. Olsson, Michał Rostkowski, and Jan H. Jensen. Journal of Chemical Theory and Computation 2011 7 (7), 2284-2295. DOI: 10.1021/ct200133y")
+
+        try:
+            if "gz" in path:
+                with gzip.open(path, "rt") as unzipped:
+                    i = pk.single(path.split(structure_extension)[0] + "pdb", optargs = ["-q"], stream = unzipped) #perform PROPKA on the file
             else:
-                raise
-    except: #otherwise
-        #try:
-        path = glob.glob("pdb/*/pdb" + input + ".ent.gz")[0] #find the file
-        with gzip.open(path, "rt") as unzipped: #unzip the file
-            try:
-                i = pk.single(path.split("ent")[0] + "pdb", optargs = ["-q"], stream = unzipped) #perform PROPKA on the file
-                worked = True
-            except:
-                print("PROPKA failed for: ", input)
-                with open("PROPKA failed for.txt", "a") as file:
-                    file.write(input + "\r")
-             
-        
-        #except:
-            #print("propka error for:", "/propka/" + input)
+                with open(path, "rt") as f:
+                    i = pk.single(path.split(structure_extension)[0] + "pdb", optargs = ["-q"], stream = f)
+            worked = True
+        except:
+            print("PROPKA failed for: ", input)
+            with open("PROPKA failed for.txt", "a") as file:
+                file.write(input + "\r")
+
+            
     if worked == True:
-        shutil.move(path.split("\\")[-1].split("ent")[0] + "pka", "propka/" + path.split("\\")[-1].split("ent")[0] + "pka") #move the file to propka folder 
+        # Move the file to propka folder 
+        shutil.move(path.split("\\")[-1].split("ent")[0] + "pka", propka_path)
         return i
+    
