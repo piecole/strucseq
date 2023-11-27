@@ -2,7 +2,6 @@ import time
 import requests
 from bs4 import BeautifulSoup
 import pandas as pd
-import lxml
 import numpy as np
 import gzip
 from Bio.PDB import *
@@ -1419,3 +1418,33 @@ def PDBsearch(query : str) -> list:
     results = set(query())
 
     return results
+
+import propka.run as pk
+
+def dopropka(input, check = True): #checks if a propka file exists, if not then it attempts to make compute one
+    print("calling PROPKA at", time.strftime("%H:%M:%S", time.localtime()))
+    worked = False
+    try:
+        with open("propka/pdb" + input + ".pka", mode = "r") as newfile: #check if file exists
+            if check == True:
+                print("propka/pdb" + input + ".pka already exists")
+            else:
+                raise
+    except: #otherwise
+        #try:
+        path = glob.glob("pdb/*/pdb" + input + ".ent.gz")[0] #find the file
+        with gzip.open(path, "rt") as unzipped: #unzip the file
+            try:
+                i = pk.single(path.split("ent")[0] + "pdb", optargs = ["-q"], stream = unzipped) #perform PROPKA on the file
+                worked = True
+            except:
+                print("PROPKA failed for: ", input)
+                with open("PROPKA failed for.txt", "a") as file:
+                    file.write(input + "\r")
+             
+        
+        #except:
+            #print("propka error for:", "/propka/" + input)
+    if worked == True:
+        shutil.move(path.split("\\")[-1].split("ent")[0] + "pka", "propka/" + path.split("\\")[-1].split("ent")[0] + "pka") #move the file to propka folder 
+        return i
