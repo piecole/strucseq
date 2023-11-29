@@ -2,12 +2,20 @@ import time
 import requests
 from bs4 import BeautifulSoup
 import pandas as pd
-import lxml
 import numpy as np
 import gzip
 from Bio.PDB import *
 from typing import Union
 import ast
+import os
+import glob
+import shutil
+
+try:
+    import propka.run as pk
+except:
+    print("PROPKA not installed, will not be able to determine pka through PROPKA.")
+
 
 try:
     from rcsbsearchapi.search import TextQuery as PDBquery
@@ -26,11 +34,17 @@ alphabet = ["A","B","C","D","E","F","G","H","I","J","K","L","M","N","O","P","Q",
 threeletter = ["ALA","DCY","CYS","ASP","GLU","PHE","GLY","HIS","ILE","JXX","LYS","LEU","MET","ASN","OXX","PRO","GLN","ARG","SER","THR","MSE","VAL","TRP","TPO","TYR","SEP"]
 threetoone = dict(zip(threeletter, alphabet))
 
+# Fix forward slashes in filepaths and create missing folders
 def parse_folder(input_folder : str):
     assert isinstance(input_folder, str), "str expected for input_folder, got" + repr(type(input_folder))
     input_folder = input_folder.replace("\\", "/")
     if input_folder[-1] != "/":
         input_folder = input_folder + "/"
+    
+    # Create missing folder
+    if not os.path.exists(input_folder):
+        os.makedirs(input_folder)
+
     return input_folder
 
 get_pKa = { #this dictioary defines the pKas of amino acid side chains
@@ -1391,7 +1405,7 @@ def get_oximouse_data(age : str):
     elif age == "detected":
         df = pd.read_csv("https://piecole.com/data/oximouse_all_cysteines_detected.txt", sep = "\t")
     else:
-        raise Exception("age must be 'aged', 'young', or 'detected'.")
+        raise Exception("age must be 'aged', 'young', or 'detected'. Given: " + repr(age) + ".")
     #  Split data into measurement + variance
     df = separatevariance(df, "±", " dev")
 
@@ -1400,12 +1414,53 @@ def get_oximouse_data(age : str):
 
     return df
 
-def get_alphafold_structure(uniprot_code, folder):
+def get_alphafold_structure(uniprot_code : str, folder : str = "structures", extension = "ent", strict = False, debug = False):
+    """
+    Downloads a structure from AlphaFold for a given uniprot code.
+
+    Parameters
+    ----------
+    uniprot_code : str
+        Uniprot code of the protein to download.
+    folder : str, optional
+        Folder to save the structure to. The default is "structures".
+    extension : str, optional
+        Extension of the file. The default is "ent".
+    strict : bool, optional
+        Whether to raise an exception if the structure is not found. The default is False.
+    debug : bool, optional
+        Whether to print messages as it goes. The default is False.
+
+    Returns
+    -------
+    None.
+    
+    """
+    
+    folder = parse_folder(folder)
+
+    # Check whether the structure exists
+    if os.path.exists(folder + uniprot_code + "." + extension):
+        if debug:
+            print("Already have structure for " + uniprot_code + ".")
+        return
+
     # Get the structure
+    print("Downloading structure for " + uniprot_code + " from AlphaFold. Please cite: ")
+    print("Jumper, J., Evans, R., Pritzel, A. et al. Highly accurate protein structure prediction with AlphaFold. Nature 596, 583–589 (2021). https://doi.org/10.1038/s41586-021-03819-2")
     url = "https://alphafold.ebi.ac.uk/files/AF-" + uniprot_code + "-F1-model_v4.pdb"
     data = requests.get(url, allow_redirects=True)
+
+    if "NoSuchKey" in str(data.content):
+        if strict:
+            raise Exception("AlphaFold structure for " + uniprot_code + " not found.")
+        else:
+            if debug:
+                print("AlphaFold structure for " + uniprot_code + " not found.")
+            return
+
     # Save the structure
-    open(parse_folder(folder) + uniprot_code + ".pdb", 'wb').write(data.content)
+    open(folder + uniprot_code + "." + extension, 'wb').write(data.content)
 
 def PDBsearch(query : str) -> list:
     """
@@ -1420,3 +1475,73 @@ def PDBsearch(query : str) -> list:
     results = set(query())
 
     return results
+
+import propka.run as pk
+
+def run_propka(input_file, structure_folder = "pdb", structure_extension = "ent", propka_folder = "propka/", check = True):
+    """
+    Checks if a propka file exists, if not then it attempts to make compute one
+
+    Parameters
+    ----------
+
+    input_file : str  
+        The name of the file to compute propka for.
+    structure_folder : str, optional  
+        The folder to look for the structure in. The default is "pdb".
+    structure_extension : str, optional
+        The extension of the structure file. The default is "ent".
+    propka_folder : str, optional
+        The folder to save the propka file in. The default is "propka/".
+    check : bool, optional
+        Whether to check if the propka file exists before computing it. The default is True.
+
+    Returns
+    -------
+    i : propka.run.single
+        The propka object. Also saves it to a file.
+        
+    """
+    
+    worked = False
+
+    # Check if propka is installed
+    try:
+        pk
+    except:
+        raise Exception("PROPKA not installed. Please install to use this function.")
+
+    propka_folder = parse_folder(propka_folder)
+    propka_path = propka_folder + input_file + ".pka"
+    # Check if that exists
+    if os.path.exists(propka_path) and check:
+        print(propka_path + " already exists.")
+        return
+    else:
+        structure_folder = parse_folder(structure_folder)
+        try:
+            path = glob.glob(structure_folder + "/**/" + input_file + "*.*" + structure_extension + "*", recursive = True)[0]
+        except:
+            print("No structure found for " + input_file + ".")
+            return
+        print("Calculating pKas with PROPKA and saving to file. Please cite:")
+        print("Improved Treatment of Ligands and Coupling Effects in Empirical Calculation and Rationalization of pKa Values. Chresten R. Søndergaard, Mats H. M. Olsson, Michał Rostkowski, and Jan H. Jensen. Journal of Chemical Theory and Computation 2011 7 (7), 2284-2295. DOI: 10.1021/ct200133y")
+
+        try:
+            if "gz" in path:
+                with gzip.open(path, "rt") as unzipped:
+                    i = pk.single(path.split(structure_extension)[0] + "pdb", optargs = ["-q"], stream = unzipped) #perform PROPKA on the file
+            else:
+                with open(path, "rt") as f:
+                    i = pk.single(path.split(structure_extension)[0] + "pdb", optargs = ["-q"], stream = f)
+            worked = True
+        except:
+            print("PROPKA failed for: ", input_file)
+            with open("PROPKA failed for.txt", "a") as file:
+                file.write(input_file + "\r")
+            
+    if worked == True:
+        # Move the file to propka folder 
+        shutil.move(path.split("\\")[-1].split("ent")[0] + "pka", propka_path.replace("/", "/pdb"))
+        return i
+    
