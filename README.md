@@ -475,22 +475,22 @@ Checks if a propka file exists, if not then it attempts to make compute one.
 
 ### Parameters
 
-input_file : str  
+**input_file** : str  
     The name of the file to compute propka for.
 
-structure_folder : str, optional  
+**structure_folder** : str, optional  
     The folder to look for the structure in. The default is "pdb".
 
-structure_extension : str, optional  
+**structure_extension** : str, optional  
     The extension of the structure file. The default is "ent".
 
-propka_folder : str, optional  
+**propka_folder** : str, optional  
     The folder to save the propka file in. The default is "propka/".
 
-check : bool, optional  
+**check** : bool, optional  
     Whether to check if the propka file exists before computing it. The default is True.
 
 ### Returns
 
-i : propka.run.single
+**i** : propka.run.single  
     The propka object. Also saves it to a file.
