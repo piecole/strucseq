@@ -1407,7 +1407,29 @@ def get_oximouse_data(age : str):
 
     return df
 
-def get_alphafold_structure(uniprot_code, folder, extension = "ent", strict = False, debug = False):
+def get_alphafold_structure(uniprot_code : str, folder : str = "structures", extension = "ent", strict = False, debug = False):
+    """
+    Downloads a structure from AlphaFold for a given uniprot code.
+
+    Parameters
+    ----------
+    uniprot_code : str
+        Uniprot code of the protein to download.
+    folder : str
+        Folder to save the structure to.
+    extension : str, optional
+        Extension of the file. The default is "ent".
+    strict : bool, optional
+        Whether to raise an exception if the structure is not found. The default is False.
+    debug : bool, optional
+        Whether to print messages as it goes. The default is False.
+
+    Returns
+    -------
+    None.
+    
+    """
+    
     folder = parse_folder(folder)
 
     # Check whether the structure exists
@@ -1449,18 +1471,6 @@ def PDBsearch(query : str) -> list:
 
 import propka.run as pk
 
-def try_gzip(path, *args):
-    """
-    Takes a path to a file and tries to open it as a gzip file. Returns the unzipped file if it
-    works, otherwise returns the file.
-    """
-    try:
-        with gzip.open(path, *args) as f:
-            return f
-    except:
-        with open(path, "rt") as f:
-            return f
-
 def dopropka(input, structure_folder = "pdb", structure_extension = "ent", propka_folder = "propka/", check = True):
     """
     Checks if a propka file exists, if not then it attempts to make compute one
@@ -1496,10 +1506,9 @@ def dopropka(input, structure_folder = "pdb", structure_extension = "ent", propk
             print("PROPKA failed for: ", input)
             with open("PROPKA failed for.txt", "a") as file:
                 file.write(input + "\r")
-
             
     if worked == True:
         # Move the file to propka folder 
-        shutil.move(path.split("\\")[-1].split("ent")[0] + "pka", propka_path)
+        shutil.move(path.split("\\")[-1].split("ent")[0] + "pka", propka_path.replace("/", "/pdb"))
         return i
     
