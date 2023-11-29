@@ -1477,9 +1477,29 @@ def PDBsearch(query : str) -> list:
 
 import propka.run as pk
 
-def dopropka(input, structure_folder = "pdb", structure_extension = "ent", propka_folder = "propka/", check = True):
+def run_propka(input_file, structure_folder = "pdb", structure_extension = "ent", propka_folder = "propka/", check = True):
     """
     Checks if a propka file exists, if not then it attempts to make compute one
+
+    Parameters
+    ----------
+
+    input_file : str  
+        The name of the file to compute propka for.
+    structure_folder : str, optional  
+        The folder to look for the structure in. The default is "pdb".
+    structure_extension : str, optional
+        The extension of the structure file. The default is "ent".
+    propka_folder : str, optional
+        The folder to save the propka file in. The default is "propka/".
+    check : bool, optional
+        Whether to check if the propka file exists before computing it. The default is True.
+
+    Returns
+    -------
+    i : propka.run.single
+        The propka object. Also saves it to a file.
+        
     """
     
     worked = False
@@ -1491,17 +1511,17 @@ def dopropka(input, structure_folder = "pdb", structure_extension = "ent", propk
         raise Exception("PROPKA not installed. Please install to use this function.")
 
     propka_folder = parse_folder(propka_folder)
-    propka_path = propka_folder + input + ".pka"
+    propka_path = propka_folder + input_file + ".pka"
     # Check if that exists
-    if os.path.exists(propka_path):
+    if os.path.exists(propka_path) and check:
         print(propka_path + " already exists.")
         return
     else:
         structure_folder = parse_folder(structure_folder)
         try:
-            path = glob.glob(structure_folder + "/**/" + input + "*.*" + structure_extension + "*", recursive = True)[0]
+            path = glob.glob(structure_folder + "/**/" + input_file + "*.*" + structure_extension + "*", recursive = True)[0]
         except:
-            print("No structure found for " + input + ".")
+            print("No structure found for " + input_file + ".")
             return
         print("Calculating pKas with PROPKA and saving to file. Please cite:")
         print("Improved Treatment of Ligands and Coupling Effects in Empirical Calculation and Rationalization of pKa Values. Chresten R. Søndergaard, Mats H. M. Olsson, Michał Rostkowski, and Jan H. Jensen. Journal of Chemical Theory and Computation 2011 7 (7), 2284-2295. DOI: 10.1021/ct200133y")
@@ -1515,9 +1535,9 @@ def dopropka(input, structure_folder = "pdb", structure_extension = "ent", propk
                     i = pk.single(path.split(structure_extension)[0] + "pdb", optargs = ["-q"], stream = f)
             worked = True
         except:
-            print("PROPKA failed for: ", input)
+            print("PROPKA failed for: ", input_file)
             with open("PROPKA failed for.txt", "a") as file:
-                file.write(input + "\r")
+                file.write(input_file + "\r")
             
     if worked == True:
         # Move the file to propka folder 

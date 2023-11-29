@@ -465,3 +465,32 @@ Downloading structure for Q13426 from AlphaFold. Please cite:
 Jumper, J., Evans, R., Pritzel, A. et al. Highly accurate protein structure prediction with AlphaFold. Nature 596, 583–589 (2021). https://doi.org/10.1038/s41586-021-03819-2
 ```
 
+## run_propka
+
+```python
+run_propka(input_file, structure_folder = "pdb", structure_extension = "ent", propka_folder = "propka/", check = True)
+```
+
+Checks if a propka file exists, if not then it attempts to make compute one.
+
+### Parameters
+
+input_file : str  
+    The name of the file to compute propka for.
+
+structure_folder : str, optional  
+    The folder to look for the structure in. The default is "pdb".
+
+structure_extension : str, optional  
+    The extension of the structure file. The default is "ent".
+
+propka_folder : str, optional  
+    The folder to save the propka file in. The default is "propka/".
+
+check : bool, optional  
+    Whether to check if the propka file exists before computing it. The default is True.
+
+### Returns
+
+i : propka.run.single
+    The propka object. Also saves it to a file.
