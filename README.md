@@ -429,7 +429,7 @@ Uniprot ID aged	Gene symbol aged	Site aged	ModScore aged	Motif aged	BAT aged	Bra
 ## get_alphafold_structure
 
 ```python
-get_alphafold_structure(uniprot_code : str, folder : str, extension = "ent", strict = False, debug = False)
+get_alphafold_structure(uniprot_code : str, folder : str = "structures", extension = "ent", strict = False, debug = False)
 ```
 
 Downloads a structure from AlphaFold for a given uniprot code.
@@ -439,8 +439,8 @@ Downloads a structure from AlphaFold for a given uniprot code.
 **uniprot_code** : str  
     Uniprot code of the protein to download.
 
-**folder** : str  
-    Folder to save the structure to.
+**folder** : str, optional
+    Folder to save the structure to. The default is "structures".
 
 **extension** : str, optional  
     File extension to give to the structure. The default is "ent".
@@ -464,3 +464,4 @@ None. Saves the AlphaFold structure for that uniprot code.
 Downloading structure for Q13426 from AlphaFold. Please cite: 
 Jumper, J., Evans, R., Pritzel, A. et al. Highly accurate protein structure prediction with AlphaFold. Nature 596, 583–589 (2021). https://doi.org/10.1038/s41586-021-03819-2
 ```
+

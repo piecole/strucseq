@@ -12,6 +12,12 @@ import glob
 import shutil
 
 try:
+    import propka.run as pk
+except:
+    print("PROPKA not installed, will not be able to determine pka through PROPKA.")
+
+
+try:
     from rcsbsearchapi.search import TextQuery as PDBquery
 except:
     print("rcsbsearchapi not installed, some functions may not work.")
@@ -1415,8 +1421,8 @@ def get_alphafold_structure(uniprot_code : str, folder : str = "structures", ext
     ----------
     uniprot_code : str
         Uniprot code of the protein to download.
-    folder : str
-        Folder to save the structure to.
+    folder : str, optional
+        Folder to save the structure to. The default is "structures".
     extension : str, optional
         Extension of the file. The default is "ent".
     strict : bool, optional
@@ -1477,6 +1483,12 @@ def dopropka(input, structure_folder = "pdb", structure_extension = "ent", propk
     """
     
     worked = False
+
+    # Check if propka is installed
+    try:
+        pk
+    except:
+        raise Exception("PROPKA not installed. Please install to use this function.")
 
     propka_folder = parse_folder(propka_folder)
     propka_path = propka_folder + input + ".pka"
