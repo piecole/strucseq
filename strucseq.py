@@ -872,6 +872,8 @@ def get_residues(residue : str, flanknum : int, sequence : str, placeholder : st
         Frameshift is a bit of a misnomer, just mean (for example) if a residue has 
         been swapped with another next to it, like ABCDEFG compared to ABCEDFG which 
         would otherwise lead to not detecting that residue at all.
+    strict : bool, optional
+        Whether to raise an exception if the input sequence isn't valid.
 
     Returns
     -------
@@ -884,11 +886,13 @@ def get_residues(residue : str, flanknum : int, sequence : str, placeholder : st
 
     """
 
-    assert isinstance(sequence, str), "Expected str for sequence, got '" + repr(sequence) + "' which is " + repr(type(sequence))
+    if strict == True:
+        assert isinstance(sequence, str), "Expected str for sequence, got '" + repr(sequence) + "' which is " + repr(type(sequence))
 
     # The residue number is the actual number rather the list-index number
     reslist = {} # Make the dictionary to fill up
     sequence = "".join([placeholder for i in range(flanknum)]) + sequence
+
     for position, letter in enumerate(str(sequence)): #iterate through the letters in the sequence
         if(letter == residue): #check that the letter is a cysteine? allowing return of any residue caused problems
             flank = []
@@ -973,14 +977,20 @@ def get_equivalentresidue(resnum : int, seq1 : str, seq2 : str, flanknum : int =
     #catch input errors
     assert isinstance(resnum, int), "Expected int for resnum, got " + repr(type(resnum))
     assert isinstance(pass_nan, bool), "Expected bool for pass_nan, got " + repr(type(pass_nan))
-    if pass_nan == False:
-        assert isinstance(seq1, str), "Expected str for seq1, got '" + repr(seq1) + "' which is " + repr(type(seq1))
-        assert isinstance(seq2, str), "Expected str for seq2, got '" + repr(seq2) + "' which is " + repr(type(seq2))
     assert isinstance(flanknum, int), "Expected int for flanknum, got " + repr(type(flanknum))
     assert isinstance(placeholder, str), "Expected str for placeholder, got " + repr(type(placeholder))
     assert len(placeholder) == 1, f"Expected single letter string for placeholder, got '{placeholder}'."
     assert isinstance(debug, bool), "Expected bool for debug, got " + repr(type(debug))
     
+    if pass_nan == False:
+        assert isinstance(seq1, str), "Expected str for seq1, got '" + repr(seq1) + "' which is " + repr(type(seq1))
+        assert isinstance(seq2, str), "Expected str for seq2, got '" + repr(seq2) + "' which is " + repr(type(seq2))
+    else:
+        if isinstance(seq1, str) == False:
+            return [np.NaN, np.NaN]
+        if isinstance(seq2, str) == False:
+            return [np.NaN, np.NaN]
+
     #   Extract the flanking sequence in seq1
     failed = False
     try:
