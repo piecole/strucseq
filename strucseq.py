@@ -1543,4 +1543,65 @@ def run_propka(input_file, structure_folder = "pdb", structure_extension = "ent"
         # Move the file to propka folder 
         shutil.move(path.split("\\")[-1].split("ent")[0] + "pka", propka_path.replace("/", "/pdb"))
         return i
-    
+
+def check_structure_for_proximal_atoms(structure_file, residue_1, residue_2, atom_1 = "CA", atom_2 = "CA", distance = 10):
+    """
+    Open a protein structure and search for two residues that are within a specified
+    distance of each other. Returning a list of dictionaries with two residues and
+    their distance from each other.
+
+    Parameters
+    ----------
+    structure_file : str
+        Path to the structure file
+    residue_1 : int
+        Residue number of the first residue
+    residue_2 : int
+        Residue number of the second residue
+    atom_1 : str, optional
+        Name of the atom in the first residue. Default is "CA"
+    atom_2 : str, optional
+        Name of the atom in the second residue. Default is "CA"
+    distance : int, optional
+        Distance cutoff. Default is 10.
+
+    Returns
+    -------
+    dict
+        Dictionary containing the two residues and their distance from each other.
+
+    Examples
+    --------
+    check_structure_for_proximal_atoms("data/alphafold_structures/A2A5R2.ent", "CYS", "CYS", "SG", "SG", 10)
+    """
+
+    structures = PDBParser().get_structure("structure", structure_file)
+    output_residues = []
+    for structure in structures:
+        # Compile all the residues, so that intermolecular interactions can be
+        # checked
+        residues = []
+        for chain in structure:
+            for residue in chain:
+                # Only keep relevent residues
+                if residue.get_resname() == residue_1 or residue.get_resname() == residue_2:
+                    residue.chain = chain
+                    residues.append(residue)
+        # Iterate through and measure the distance between all the residues
+        for residue_A in residues:
+            for residue_B in residues:
+                # Check the residues are different
+                if residue_A != residue_B:
+                    # Check the atoms are in the residues
+                    assert atom_1 in [atom.get_id() for atom in residue_A], f"Atom {atom_1} not found in residue {residue_A.get_resname()}{residue_A.get_id()[1]}"
+                    assert atom_2 in [atom.get_id() for atom in residue_B], f"Atom {atom_2} not found in residue {residue_B.get_resname()}{residue_B.get_id()[1]}"
+                    # Measure the distance between the atoms and document if it is
+                    distance = residue_A[atom_1] - residue_B[atom_2]
+                    if distance < 10:
+                        output_dict = {"residue number A" : residue_A.id[1],
+                                       "chain A" : residue_A.chain.id,
+                                        "residue number B" : residue_B.id[1],
+                                        "chain B" : residue_B.chain.id,
+                                        "distance" : distance}
+                        output_residues.append(output_dict)
+    return output_residues
