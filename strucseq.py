@@ -883,10 +883,11 @@ def get_residues(residue : str, flanknum : int, sequence : str, placeholder : st
         frameshifts.
 
     """
-    
-    #the residue number is the actual number rather the list-index number
-    reslist = {} #make the dictionary to fill up
-    print("residue:", residue, "flanknum:", flanknum, "sequence:", sequence, "placeholder:", placeholder)
+
+    assert isinstance(sequence, str), "Expected str for sequence, got '" + repr(sequence) + "' which is " + repr(type(sequence))
+
+    # The residue number is the actual number rather the list-index number
+    reslist = {} # Make the dictionary to fill up
     sequence = "".join([placeholder for i in range(flanknum)]) + sequence
     for position, letter in enumerate(str(sequence)): #iterate through the letters in the sequence
         if(letter == residue): #check that the letter is a cysteine? allowing return of any residue caused problems
