@@ -1604,10 +1604,10 @@ def check_structure_for_proximal_atoms(structure_file, residue_1, residue_2, ato
     ----------
     structure_file : str
         Path to the structure file
-    residue_1 : int
-        Residue number of the first residue
-    residue_2 : int
-        Residue number of the second residue
+    residue_1 : str
+        Residue three letter code of the first residue
+    residue_2 : str
+        Residue three letter code of the second residue
     atom_1 : str, optional
         Name of the atom in the first residue. Default is "CA"
     atom_2 : str, optional
@@ -1617,7 +1617,7 @@ def check_structure_for_proximal_atoms(structure_file, residue_1, residue_2, ato
 
     Returns
     -------
-    dict
+    dict  
         Dictionary containing the two residues and their distance from each other.
 
     Examples
