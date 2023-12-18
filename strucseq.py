@@ -1486,6 +1486,45 @@ def PDBsearch(query : str) -> list:
 
     return results
 
+def get_PDB_structure(pdb_id : str, folder : str = "structures", extension = "ent", strict = False, debug = False):
+    """
+    Downloads a structure from the PDB for a given PDB ID.
+
+    Parameters
+    ----------
+    pdb_id : str
+        PDB ID of the structure to download.
+    folder : str, optional
+        Folder to save the structure to. The default is "structures".
+    extension : str, optional
+        Extension of the file. The default is "ent".
+    strict : bool, optional
+        Whether to raise an exception if the structure is not found. The default is False.
+    debug : bool, optional
+        Whether to print messages as it goes. The default is False.
+
+    Returns
+    -------
+    None.
+    
+    """
+    
+    folder = parse_folder(folder)
+
+    # Check whether the structure exists
+    if os.path.exists(folder + pdb_id + "." + extension):
+        if debug:
+            print("Already have structure for " + pdb_id + ".")
+        return
+
+    # Get the structure
+    print("Downloading structure for " + pdb_id + " from PDB.")
+
+    url = "https://files.rcsb.org/download/" + pdb_id + ".pdb"
+    data = requests.get(url, allow_redirects=True)
+
+    open(folder + pdb_id + "." + extension, 'wb').write(data.content)
+
 import propka.run as pk
 
 def run_propka(input_file, structure_folder = "pdb", structure_extension = "ent", propka_folder = "propka/", check = True):
