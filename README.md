@@ -494,3 +494,44 @@ Checks if a propka file exists, if not then it attempts to make compute one.
 
 **i** : propka.run.single  
     The propka object. Also saves it to a file.
+
+## check_structure_for_proximal_atoms
+
+```python
+check_structure_for_proximal_atoms(structure_file, residue_1, residue_2, atom_1 = "CA", atom_2 = "CA", distance = 10)
+```
+
+Open a protein structure and search for two residues that are within a specified
+distance of each other. Returning a list of dictionaries with two residues and
+their distance from each other.
+
+### Parameters
+
+**structure_file** : str  
+    Path to the structure file
+
+**residue_1** : int  
+    Residue number of the first residue
+
+**residue_2** : int  
+    Residue number of the second residue
+
+**atom_1** : str, optional  
+    Name of the atom in the first residue. Default is "CA"
+
+**atom_2** : str, optional  
+    Name of the atom in the second residue. Default is "CA"
+
+**distance** : int, optional  
+    Distance cutoff. Default is 10.
+
+### Returns
+
+**dict**
+    Dictionary containing the two residues and their distance from each other.
+
+### Examples
+
+```python
+check_structure_for_proximal_atoms("data/alphafold_structures/A2A5R2.ent", "CYS", "CYS", "SG", "SG", 10)
+```
