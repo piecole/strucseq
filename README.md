@@ -527,7 +527,7 @@ Checks if a propka file exists, if not then it attempts to make compute one.
 ## check_structure_for_proximal_atoms
 
 ```python
-check_structure_for_proximal_atoms(structure_file, residue_1, residue_2, atom_1 = "CA", atom_2 = "CA", distance = 10)
+check_structure_for_proximal_atoms(structure_file, residue_1, residue_2, atom_1 = "CA", atom_2 = "CA", max_distance = 10)
 ```
 
 Open a protein structure and search for two residues that are within a specified
@@ -556,12 +556,39 @@ their distance from each other.
 
 ### Returns
 
-**dict**
-    Dictionary containing the two residues and their distance from each other.
+**list**
+    List of dicionaries containing the two residues and their distance from each other.
 
 ### Examples
 
 ```python
-check_structure_for_proximal_atoms("data/alphafold_structures/A2A5R2.ent", "CYS", "CYS", "SG", "SG", 10)
+get_alphafold_structure("A2A5R2")
+check_structure_for_proximal_atoms("structures/A2A5R2.ent", "CYS", "CYS", atom_1 = "SG", atom_2 = "SG", max_distance = 5)
+
+[{'residue number A': 125,
+  'chain A': 'A',
+  'residue number B': 76,
+  'chain B': 'A',
+  'distance': 3.7829864},
+ {'residue number A': 514,
+  'chain A': 'A',
+  'residue number B': 573,
+  'chain B': 'A',
+  'distance': 3.7547925},
+ {'residue number A': 725,
+  'chain A': 'A',
+  'residue number B': 763,
+  'chain B': 'A',
+  'distance': 4.4332957},
+ {'residue number A': 1350,
+  'chain A': 'A',
+  'residue number B': 1286,
+  'chain B': 'A',
+  'distance': 3.520143},
+ {'residue number A': 1417,
+  'chain A': 'A',
+  'residue number B': 1457,
+  'chain B': 'A',
+  'distance': 4.3076897}]
 ```
 

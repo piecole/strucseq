@@ -1594,7 +1594,12 @@ def run_propka(input_file, structure_folder = "pdb", structure_extension = "ent"
         shutil.move(path.split("\\")[-1].split("ent")[0] + "pka", propka_path.replace("/", "/pdb"))
         return i
 
-def check_structure_for_proximal_atoms(structure_file, residue_1, residue_2, atom_1 = "CA", atom_2 = "CA", distance = 10):
+def check_structure_for_proximal_atoms(structure_file,
+                                       residue_1,
+                                       residue_2,
+                                       atom_1 = "CA",
+                                       atom_2 = "CA",
+                                       max_distance = 10):
     """
     Open a protein structure and search for two residues that are within a specified
     distance of each other. Returning a list of dictionaries with two residues and
@@ -1617,8 +1622,8 @@ def check_structure_for_proximal_atoms(structure_file, residue_1, residue_2, ato
 
     Returns
     -------
-    dict  
-        Dictionary containing the two residues and their distance from each other.
+    List  
+        List of dictionaries containing the two residues and their distance from each other.
 
     Examples
     --------
@@ -1647,11 +1652,13 @@ def check_structure_for_proximal_atoms(structure_file, residue_1, residue_2, ato
                     assert atom_2 in [atom.get_id() for atom in residue_B], f"Atom {atom_2} not found in residue {residue_B.get_resname()}{residue_B.get_id()[1]}"
                     # Measure the distance between the atoms and document if it is
                     distance = residue_A[atom_1] - residue_B[atom_2]
-                    if distance < 10:
+                    if distance < max_distance:
                         output_dict = {"residue number A" : residue_A.id[1],
                                        "chain A" : residue_A.chain.id,
                                         "residue number B" : residue_B.id[1],
                                         "chain B" : residue_B.chain.id,
                                         "distance" : distance}
                         output_residues.append(output_dict)
+            # Remove residue_A from residues so it wont get tested again
+            residues.remove(residue_A)
     return output_residues
