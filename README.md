@@ -426,6 +426,35 @@ Uniprot ID aged	Gene symbol aged	Site aged	ModScore aged	Motif aged	BAT aged	Bra
 
 ```
 
+## get_PDB_structure
+```python
+get_PDB_structure(pdb_id : str, folder : str = "structures", extension = "ent", strict = False, debug = False)
+```
+Downloads a structure from the PDB for a given PDB ID.
+
+### Parameters
+
+**pdb_id** : str  
+    PDB ID of the structure to download.
+
+**folder** : str, optional  
+    Folder to save the structure to. The default is "structures".
+
+**extension** : str, optional
+    The file extension to use. The default is "ent".
+
+**strict** : bool, optional  
+    Whether to raise an exception if the structure is not found. The default is False.
+
+**debug** : bool, optional  
+    Whether to print messages as it goes. The default is False.
+    
+
+### Returns
+
+None. Saves the structure to the specified folder, default "structures".
+
+
 ## get_alphafold_structure
 
 ```python
@@ -535,3 +564,4 @@ their distance from each other.
 ```python
 check_structure_for_proximal_atoms("data/alphafold_structures/A2A5R2.ent", "CYS", "CYS", "SG", "SG", 10)
 ```
+
