@@ -4,3 +4,4 @@ build/
 strucseg.egg-info/
 data/
 pdb/
+*/*
