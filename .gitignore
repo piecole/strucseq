@@ -1,7 +1,7 @@
 __pycache__/
 *.pyc
 build/
-strucseg.egg-info/
+strucsec.egg-info/
 data/
 pdb/
 */*
