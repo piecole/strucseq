@@ -1594,21 +1594,21 @@ def run_propka(input_file, structure_folder = "pdb", structure_extension = "ent"
         shutil.move(path.split("\\")[-1].split("ent")[0] + "pka", propka_path.replace("/", "/pdb"))
         return i
 
-def check_structure_for_proximal_atoms(structure_file,
+def check_structure_for_proximal_atoms(structure,
                                        residue_1,
                                        residue_2,
                                        atom_1 = "CA",
                                        atom_2 = "CA",
                                        max_distance = 10):
     """
-    Open a protein structure and search for two residues that are within a specified
-    distance of each other. Returning a list of dictionaries with two residues and
-    their distance from each other.
+    Open a protein structure (or structure) and search for two
+    residues that are within a specified distance of each other. Returning a list of
+    dictionaries with two residues and their distance from each other.
 
     Parameters
     ----------
-    structure_file : str
-        Path to the structure file
+    structure_file : str or  Bio.PDB.Structure
+        Structure or path to the structure file
     residue_1 : str
         Residue three letter code of the first residue
     residue_2 : str
@@ -1627,10 +1627,16 @@ def check_structure_for_proximal_atoms(structure_file,
 
     Examples
     --------
-    check_structure_for_proximal_atoms("data/alphafold_structures/A2A5R2.ent", "CYS", "CYS", "SG", "SG", 10)
-    """
+    check_structure_for_proximal_atoms("structures/A2A5R2.ent", "CYS", "CYS", atom_1 = "SG", atom_2 = "SG", max_distance = 5)    """
 
-    structures = PDBParser().get_structure("structure", structure_file)
+    if isinstance(structure, str):
+        # Make sure structure file exists
+        assert os.path.exists(structure), "Structure file not found."
+        structures = PDBParser().get_structure("structure", structure)
+    else:
+        # Make sure structure is a structure
+        assert isinstance(structure, Structure.Structure), "Expected Bio.PDB.Structure.Structure for structure, got " + repr(type(structure))
+        structures = structure
     output_residues = []
     for structure in structures:
         # Compile all the residues, so that intermolecular interactions can be

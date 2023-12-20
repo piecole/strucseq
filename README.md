@@ -530,9 +530,9 @@ Checks if a propka file exists, if not then it attempts to make compute one.
 check_structure_for_proximal_atoms(structure_file, residue_1, residue_2, atom_1 = "CA", atom_2 = "CA", max_distance = 10)
 ```
 
-Open a protein structure and search for two residues that are within a specified
-distance of each other. Returning a list of dictionaries with two residues and
-their distance from each other.
+Open a protein structure (or structure) and search for two
+residues that are within a specified distance of each other. Returning a list of
+dictionaries with two residues and their distance from each other.
 
 ### Parameters
 
@@ -562,8 +562,8 @@ their distance from each other.
 ### Examples
 
 ```python
-get_alphafold_structure("A2A5R2")
-check_structure_for_proximal_atoms("structures/A2A5R2.ent", "CYS", "CYS", atom_1 = "SG", atom_2 = "SG", max_distance = 5)
+>>> get_alphafold_structure("A2A5R2")
+>>> check_structure_for_proximal_atoms("structures/A2A5R2.ent", "CYS", "CYS", atom_1 = "SG", atom_2 = "SG", max_distance = 5)
 
 [{'residue number A': 125,
   'chain A': 'A',
