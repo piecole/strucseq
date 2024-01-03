@@ -1417,9 +1417,9 @@ def get_oximouse_data(age : str):
     else:
         raise Exception("age must be 'aged', 'young', or 'detected'. Given: " + repr(age) + ".")
     #  Split data into measurement + variance
-    df = separatevariance(df, "±", " dev")
+    df = separatevariance(df, "±", " SEM")
 
-    print(f"Downloaded {age} oximouse data. Please cite:")
+    print(f"Downloaded {age} oximouse data. Cite:")
     print("Xiao, H., Jedrychowski, M. P., Schweppe, D. K., Huttlin, E. L., Yu, Q., Heppner, D. E., Li, J., Long, J., Mills, E. L., Szpyt, J., He, Z., Du, G., Garrity, R., Reddy, A., Vaites, L. P., Paulo, J. A., Zhang, T., Gray, N. S., Gygi, S. P., & Chouchani, E. T. (2020). A Quantitative Tissue-Specific Landscape of Protein Redox Regulation during Aging. Cell, 180(5), 968-983.e24. https://doi.org/10.1016/j.cell.2020.02.012")
 
     return df
