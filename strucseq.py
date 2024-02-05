@@ -850,7 +850,7 @@ def get_flanking_info(PDB_file : str, amino_acid : str, debug : bool = False) ->
     #print(chain_sequences)
     return newdata, chain_sequences #output the flanking info as a new dataframe for each cysteine, output the chain sequences as a dicitonary
 
-def get_residues(residue : str, flanknum : int, sequence : str, placeholder : str = "!", frameshift : bool = False) -> dict:
+def get_residues(residue : str, flanknum : int, sequence : str, placeholder : str = "!", frameshift : bool = False, strict = False) -> dict:
     """
     Takes a sequence. Creates a dictionary with the residue number and flanking residues 
     of an amino acid that can be found in the sequence.
@@ -1699,13 +1699,35 @@ class Sequence:
         # Check that the sequence_types are the same
         if hasattr(self, "sequence_type") and hasattr(other, "sequence_type"):
             assert self.sequence_type == other.sequence_type, "Sequence types do not match. " + repr(self.sequence_type) + " and " + repr(other.sequence_type)
-        return Sequence(self.sequence + other.sequence)
+        sequence = Sequence(self.sequence + other.sequence)
+        if hasattr(self, "sequence_type"):
+            sequence.sequence_type = self.sequence_type
+        return sequence
 
     def reverse(self):
         """
         Reverse the sequence.
         """
         self.sequence = self.sequence[::-1]
+
+    def search_for(self, search_sequence, region = None):
+        """
+        Search for a sequence within the sequence.
+        """
+        if region == None:
+            region = [1, len(self.sequence)]
+
+        if isinstance(search_sequence, Sequence):
+            search_sequence = str(search_sequence)
+
+        print("search_sequence", search_sequence)
+        print("region", region)
+        print("end_sequence", self.sequence)
+
+        # THIS FUNCTION ASSUMES PROTEIN?
+        return convert_region(start_sequence = search_sequence,
+                              start_region = region,
+                              end_sequence = self.sequence)
     
     # Future functions:
         # reverse_complement
