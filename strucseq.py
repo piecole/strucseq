@@ -1668,3 +1668,46 @@ def check_structure_for_proximal_atoms(structure,
             # Remove residue_A from residues so it wont get tested again
             residues.remove(residue_A)
     return output_residues
+
+class Sequence:
+    """
+    Class for storing and manipulating sequences.
+    """
+
+    def __init__(self, sequence = "", **kwargs):
+        self.sequence = sequence
+        if "sequence_type" in kwargs:
+            assert kwargs["sequence_type"] in ["protein", "DNA", "RNA"], "Expected 'protein', 'DNA', or 'RNA' for sequence_type, got " + repr(kwargs["sequence_type"])
+            self.sequence_type = kwargs["sequence_type"]
+        if "name" in kwargs:
+            self.name = kwargs["name"]
+    
+    # String behaviour of sequence
+    def __str__(self):
+        return self.sequence
+    # Return behaviour
+    def __repr__(self):
+        return self.sequence
+    # Len behaviour
+    def __len__(self):
+        return len(self.sequence)
+    # Subscriptable
+    def __getitem__(self, key):
+        return self.sequence[key]
+    # Adding together behaviour
+    def __add__(self, other):
+        # Check that the sequence_types are the same
+        if hasattr(self, "sequence_type") and hasattr(other, "sequence_type"):
+            assert self.sequence_type == other.sequence_type, "Sequence types do not match. " + repr(self.sequence_type) + " and " + repr(other.sequence_type)
+        return Sequence(self.sequence + other.sequence)
+
+    def reverse(self):
+        """
+        Reverse the sequence.
+        """
+        self.sequence = self.sequence[::-1]
+    
+    # Future functions:
+        # reverse_complement
+        # get_structure (alphafold and or PDB)
+        # could put all the sequence functions in this class
