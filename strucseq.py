@@ -1703,6 +1703,14 @@ class Sequence:
         if hasattr(self, "sequence_type"):
             sequence.sequence_type = self.sequence_type
         return sequence
+    
+    # Compair behaviour
+    def __eq__(self, other):
+        assert isinstance(other, Sequence), "Expected Sequence for other, got " + repr(type(other))
+        # If both have sequence types and they do not match, an error will be thrown
+        if hasattr(self, "sequence_type") and hasattr(other, "sequence_type"):
+            assert self.sequence_type == other.sequence_type, "Sequence types do not match. " + repr(self.sequence_type) + " and " + repr(other.sequence_type)
+        return self.sequence == other.sequence
 
     def reverse(self):
         """
@@ -1728,6 +1736,16 @@ class Sequence:
         return convert_region(start_sequence = search_sequence,
                               start_region = region,
                               end_sequence = self.sequence)
+    
+    def transcribe(self):
+        """
+        Transcribe DNA to RNA.
+        """
+        if self.sequence_type == "DNA":
+            self.sequence = self.sequence.replace("T", "U")
+            self.sequence_type = "RNA"
+        else:
+            raise Exception("Sequence is not DNA, so cannot be transcribed.")
     
     # Future functions:
         # reverse_complement
