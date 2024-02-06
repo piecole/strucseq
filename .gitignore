@@ -5,3 +5,6 @@ strucsec.egg-info/
 data/
 pdb/
 */*
+structures/
+strucsec.egg-info/
+propka/

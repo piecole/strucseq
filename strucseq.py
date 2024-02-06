@@ -5,6 +5,8 @@ import pandas as pd
 import numpy as np
 import gzip
 from Bio.PDB import *
+from Bio.Blast import NCBIWWW
+from Bio.Blast import NCBIXML
 from typing import Union
 import ast
 import os
@@ -1571,7 +1573,7 @@ def run_propka(input_file, structure_folder = "pdb", structure_extension = "ent"
         try:
             path = glob.glob(structure_folder + "/**/" + input_file + "*.*" + structure_extension + "*", recursive = True)[0]
         except:
-            print("No structure found for " + input_file + ".")
+            print("No structure found for '" + input_file + "'.")
             return
         print("Calculating pKas with PROPKA and saving to file. Please cite:")
         print("Improved Treatment of Ligands and Coupling Effects in Empirical Calculation and Rationalization of pKa Values. Chresten R. Søndergaard, Mats H. M. Olsson, Michał Rostkowski, and Jan H. Jensen. Journal of Chemical Theory and Computation 2011 7 (7), 2284-2295. DOI: 10.1021/ct200133y")
@@ -1750,7 +1752,18 @@ class Sequence:
         else:
             self.sequence = self.sequence.replace("T", "U")
             self.sequence_type = "RNA"
-    
+
+    def blast(self):
+        assert hasattr(self, "sequence_type"), "Sequence type must be defined for BLAST search."
+        
+        if self.sequence_type == "DNA" or self.sequence_type == "RNA":
+            result_handle = NCBIWWW.qblast("blastn", "nt", self.sequence)
+        elif self.sequence_type == "protein":
+            result_handle = NCBIWWW.qblast("blastp", "nr", self.sequence)
+        else:
+            raise Exception("Sequence type must be 'DNA', 'RNA', or 'protein'. Got " + repr(self.sequence_type))
+        return NCBIXML.read(result_handle)
+
     # Future functions:
         # reverse_complement
         # get_structure (alphafold and or PDB)
