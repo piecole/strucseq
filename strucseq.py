@@ -1741,11 +1741,15 @@ class Sequence:
         """
         Transcribe DNA to RNA.
         """
-        if self.sequence_type == "DNA":
+        if hasattr(self, "sequence_type"):
+            if self.sequence_type == "DNA":
+                self.sequence = self.sequence.replace("T", "U")
+                self.sequence_type = "RNA"
+            else:
+                raise Exception("Sequence is not DNA, so cannot be transcribed.")
+        else:
             self.sequence = self.sequence.replace("T", "U")
             self.sequence_type = "RNA"
-        else:
-            raise Exception("Sequence is not DNA, so cannot be transcribed.")
     
     # Future functions:
         # reverse_complement
