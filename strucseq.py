@@ -1614,10 +1614,21 @@ def readpropka(filepath): #reads a propka file, saving the cysteines
         print(filepath, "not found")
     
     if found == True:
-        cysteines = [i for i in [a for a in pkadata if len(a) > 5] if i[0] == "CYS"] #save the cysteine rows as a list
-        
-        #deals with the stupid formatting which means some bits of data join onto each other, by splittting these bits of data in two
+        # Save the cysteine rows as a list
+        # Previously didn't work with 4-digit residue numbers or more, so changed it.
+        cysteines = [i for i in [a for a in pkadata if len(a) > 5] if i[0][0:3] == "CYS"]
+
+        # Deal with the stupid formatting which means some bits of data join onto each other,
+        # by splittting these bits of data in two
         for cysteine in cysteines:
+            
+            # Separate the residue number from the residue name in cases where residue
+            # number was digits or more.
+            if len(cysteine[0]) > 3:
+                cysteine.insert(1, re.split("(\d+)", cysteine[0])[0])
+                cysteine.insert(2, re.split("(\d+)", cysteine[0])[1])
+                cysteine.pop(0)            
+
             if len(cysteine) < 16:
                 for i in range(7):
                     cysteine.insert(3, '') #add extra spaces to the bond rows
@@ -1635,6 +1646,7 @@ def readpropka(filepath): #reads a propka file, saving the cysteines
                     cysteine.insert(20, re.split("(\d+)", cysteine[19])[0])
                     cysteine.insert(21, re.split("(\d+)", cysteine[19])[1])
                     cysteine.pop(19)
+            print(cysteine)
         
         #remove the bond rows (only keep the actual cysteine)
         cysteines = [i[:10] for i in cysteines if i[3] != ""]
@@ -1643,7 +1655,8 @@ def readpropka(filepath): #reads a propka file, saving the cysteines
         save_columns = ["resn", "resi", "chain", "pka", "buried", "nil", "desolvation regular 1", "desolvation regular 2", "effects re 1", "effects re 2"]
         data = pd.DataFrame(columns = save_columns, dtype = object)
         for i in cysteines:
-            newline = pd.Series(i, index = save_columns)
+            # Turn list into a dataframe column
+            newline = pd.DataFrame([i], columns = save_columns)
             data = pd.concat([data, newline],
                              ignore_index = True)
             
