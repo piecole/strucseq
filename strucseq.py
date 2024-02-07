@@ -12,6 +12,8 @@ import ast
 import os
 import glob
 import shutil
+import csv
+import re
 
 try:
     import propka.run as pk
@@ -1595,6 +1597,63 @@ def run_propka(input_file, structure_folder = "pdb", structure_extension = "ent"
         # Move the file to propka folder 
         shutil.move(path.split("\\")[-1].split("ent")[0] + "pka", propka_path.replace("/", "/pdb"))
         return i
+
+# CYSTEINE SPECIFIC
+def readpropka(filepath): #reads a propka file, saving the cysteines
+    found = False
+    try:
+        with open(filepath, mode = "r") as thisFile:
+            found = True
+            pkadatareader = csv.reader(thisFile, delimiter = " ")
+            pkadata = []
+            for pkaline in pkadatareader:
+                while '' in pkaline:
+                    pkaline.remove('')
+                pkadata.append(pkaline)
+    except:
+        print(filepath, "not found")
+    
+    if found == True:
+        cysteines = [i for i in [a for a in pkadata if len(a) > 5] if i[0] == "CYS"] #save the cysteine rows as a list
+        
+        #deals with the stupid formatting which means some bits of data join onto each other, by splittting these bits of data in two
+        for cysteine in cysteines:
+            if len(cysteine) < 16:
+                for i in range(7):
+                    cysteine.insert(3, '') #add extra spaces to the bond rows
+            if len(cysteine) > 13:
+                if(len(cysteine[11]) > 3):
+                    cysteine.insert(12, re.split("(\d+)", cysteine[11])[0])
+                    cysteine.insert(13, re.split("(\d+)", cysteine[11])[1])
+                    cysteine.pop(11)
+                #print(cysteine)
+                if(len(cysteine[15]) > 3):
+                    cysteine.insert(16, re.split("(\d+)", cysteine[15])[0])
+                    cysteine.insert(17, re.split("(\d+)", cysteine[15])[1])
+                    cysteine.pop(15)
+                if(len(cysteine[19]) > 3):
+                    cysteine.insert(20, re.split("(\d+)", cysteine[19])[0])
+                    cysteine.insert(21, re.split("(\d+)", cysteine[19])[1])
+                    cysteine.pop(19)
+        
+        #remove the bond rows (only keep the actual cysteine)
+        cysteines = [i[:10] for i in cysteines if i[3] != ""]
+        
+        #turn cysteines into a pandas dataframe
+        save_columns = ["resn", "resi", "chain", "pka", "buried", "nil", "desolvation regular 1", "desolvation regular 2", "effects re 1", "effects re 2"]
+        data = pd.DataFrame(columns = save_columns, dtype = object)
+        for i in cysteines:
+            newline = pd.Series(i, index = save_columns)
+            data = pd.concat([data, newline],
+                             ignore_index = True)
+            
+        #add the PDBid as a column
+        data["PDBid"] = filepath.split("pdb")[-1].split(".pka")[0]
+        
+        #drop nil
+        data = data.drop(columns = ["nil", "resn"])
+        
+        return data
 
 def check_structure_for_proximal_atoms(structure,
                                        residue_1,
