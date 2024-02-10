@@ -632,7 +632,13 @@ def iterate_uniprot_details_OLD(in_csv : str, out_csv : str, uniprot_csv : str =
     #save all this as a new CSV 
     data.to_csv(out_csv, sep="\t", index = False)
     
-def iterate_uniprot_details(in_csv : str, chain_cols : list, out_csv : str, delimiter : str = "\t", uniprot_csv : str = None, species : str = None, debug = True):
+def iterate_uniprot_details(in_csv : str,
+                            chain_cols : list,
+                            out_csv : str,
+                            delimiter : str = "\t",
+                            uniprot_csv : str = None,
+                            species : str = None,
+                            debug = True):
     """
     Takes an input pandas DataFrame or CSV file, uses uniprot accessions and provided chain column(s)
     to add uniprot information columns to the data, which is then output as another CSV.
@@ -685,7 +691,7 @@ def iterate_uniprot_details(in_csv : str, chain_cols : list, out_csv : str, deli
         chain_cols = [chain_cols]
     
     #   Combines the known uniprot accessions into the screen product dataframe
-    for chain_col in chains_cols: #  Adds the uniprot based on on 'a chain' then 'b chain'
+    for chain_col in chain_cols: #  Adds the uniprot based on on 'a chain' then 'b chain'
         if uniprot_csv != None: #   If uniprot_csv was specified, then add this to the dataframe
             data = pd.merge(data, uniprot_csv, how = "left", left_on=["PDBid", chain_col], right_on=["PDB", "chain"]) #  Looks at the chain letter and pdb accession code and adds the row from the uniprot dataframe
             data = data.drop(["PDB", "chain"], axis = 1) #  Removes the added PDB code and chain since this information is duplicate
@@ -697,20 +703,18 @@ def iterate_uniprot_details(in_csv : str, chain_cols : list, out_csv : str, deli
     
     data = data.loc[:,~data.columns.duplicated()].copy()
     
-    #if a species is specified, then look in that column for the accession code otherwise look in default column
+    # If a species is specified, then look in that column for the accession
+    # code, otherwise look in default column defined by the species.
     accession_columns = ["a", "b"]
-    if species == None:
-        accession_columns = ["uniprot " + x for x in chains] #default column
+    if species is None:
+        accession_columns = ["uniprot " + x for x in accession_columns] #default column
     else:
-        try:
-            accession_columns = [x + " " + species + " accession code" for x in chains]
-        except:
-            raise Exception("Expected species as string, got " + repr(species))
+        assert isinstance(species, str), "Expected species as string, found " + repr(species)
+        accession_columns = [x + " " + species + " accession code" for x in accession_columns]
     
     #accesses the internet using the new uniprots to get uniprot data using get_uniprot_details()
     #creates a new series of unique uniprot codes
             
-    #GOT TO ABOUT HERE FOR EDITING
     uniqueuniprots = pd.concat([data["uniprot a"], data["uniprot b"]],
                                ignore_index = True).reset_index(drop = True).drop_duplicates()
     uniqueuniprots = pd.DataFrame(uniqueuniprots) #turns this series into a 1 column dataframe
@@ -1486,7 +1490,7 @@ def PDBsearch(query : str) -> list:
     # Make the query
     query = PDBquery(query)
     # Execute the query
-    results = set(query())
+    results = list(set(query()))
 
     return results
 
@@ -1565,12 +1569,13 @@ def run_propka(input_file, structure_folder = "pdb", structure_extension = "ent"
         raise Exception("PROPKA not installed. Please install to use this function.")
 
     propka_folder = parse_folder(propka_folder)
-    propka_path = propka_folder + input_file + ".pka"
-    # Check if that exists
+    propka_path = propka_folder + "pdb" + input_file + ".pka"
+    # Check if the propka file exists
     if os.path.exists(propka_path) and check:
-        print(propka_path + " already exists.")
+        print(propka_path + f" already exists at {propka_path}. If you want to recompute it, set check = False.")
         return
     else:
+        print("Going to comput propka for " + input_file + ".")
         structure_folder = parse_folder(structure_folder)
         try:
             path = glob.glob(structure_folder + "/**/" + input_file + "*.*" + structure_extension + "*", recursive = True)[0]
@@ -1598,7 +1603,7 @@ def run_propka(input_file, structure_folder = "pdb", structure_extension = "ent"
         shutil.move(path.split("\\")[-1].split("ent")[0] + "pka", propka_path.replace("/", "/pdb"))
         return i
 
-# CYSTEINE SPECIFIC
+# CYSTEINE SPECIFIC, MAKE NON CYSTEINE SPECIFIC
 def readpropka(filepath): #reads a propka file, saving the cysteines
     found = False
     try:
@@ -1631,13 +1636,12 @@ def readpropka(filepath): #reads a propka file, saving the cysteines
 
             if len(cysteine) < 16:
                 for i in range(7):
-                    cysteine.insert(3, '') #add extra spaces to the bond rows
+                    cysteine.insert(3, '') # add extra spaces to the bond rows
             if len(cysteine) > 13:
                 if(len(cysteine[11]) > 3):
                     cysteine.insert(12, re.split("(\d+)", cysteine[11])[0])
                     cysteine.insert(13, re.split("(\d+)", cysteine[11])[1])
                     cysteine.pop(11)
-                #print(cysteine)
                 if(len(cysteine[15]) > 3):
                     cysteine.insert(16, re.split("(\d+)", cysteine[15])[0])
                     cysteine.insert(17, re.split("(\d+)", cysteine[15])[1])
@@ -1646,7 +1650,6 @@ def readpropka(filepath): #reads a propka file, saving the cysteines
                     cysteine.insert(20, re.split("(\d+)", cysteine[19])[0])
                     cysteine.insert(21, re.split("(\d+)", cysteine[19])[1])
                     cysteine.pop(19)
-            print(cysteine)
         
         #remove the bond rows (only keep the actual cysteine)
         cysteines = [i[:10] for i in cysteines if i[3] != ""]
@@ -1665,6 +1668,90 @@ def readpropka(filepath): #reads a propka file, saving the cysteines
         
         #drop nil
         data = data.drop(columns = ["nil", "resn"])
+        
+        return data
+
+# MAKING NON CYSTEINE SPECIFIC
+def readpropka_better(filepath = None):
+    """
+    Reads a propka file, extracting PROPKA info about each residue.
+    CAN THIS DEAL WITH NMR? CAN PROPKA NOT DEAL WITH NMR?
+    """
+    found = False
+    pkadata = []
+    try:
+        with open(filepath, mode = "r") as thisFile:
+            pkadatareader = csv.reader(thisFile, delimiter = " ")
+            for pkaline in pkadatareader:
+                while '' in pkaline:
+                    pkaline.remove('')
+                pkadata.append(pkaline)
+            found = True
+    except:
+        print(filepath, "not found")
+    
+    if found == True:
+        # Save the residues rows as a list
+        # Previously didn't work with 4-digit residue numbers or more,
+        # so changed it.
+        for i in pkadata:
+            print(i)
+        residues = [i for i in [a for a in pkadata if len(a) > 5] if i[0][0:3] in threeletter and i[0][0:6] != "PROPKA"]
+        for i in residues:
+            print(i)
+        # Deal with the stupid formatting which means some bits of
+        # data join onto each other, by splittting these bits of data in two
+        for residue in residues:
+            # Separate the residue number from the residue name in cases where residue
+            # number was digits or more.
+            if len(residue[0]) > 3:
+                residue.insert(1, re.split("(\d+)", residue[0])[0])
+                residue.insert(2, re.split("(\d+)", residue[0])[1])
+                residue.pop(0)            
+
+            if len(residue) < 16:
+                for i in range(7):
+                    residue.insert(3, '') # add extra spaces to the bond rows
+            if len(residue) > 13:
+                if(len(residue[11]) > 3):
+                    residue.insert(12, re.split("(\d+)", residue[11])[0])
+                    residue.insert(13, re.split("(\d+)", residue[11])[1])
+                    residue.pop(11)
+                if(len(residue[15]) > 3):
+                    residue.insert(16, re.split("(\d+)", residue[15])[0])
+                    print(residue)
+                    residue.insert(17, re.split("(\d+)", residue[15])[1])
+                    residue.pop(15)
+                if(len(residue[19]) > 3):
+                    residue.insert(20, re.split("(\d+)", residue[19])[0])
+                    residue.insert(21, re.split("(\d+)", residue[19])[1])
+                    residue.pop(19)
+        
+        # Remove the bond rows (only keep the actual residue)
+        residues = [i[:10] for i in residues if i[3] != ""]
+        
+        # Turn list of residues into a pandas dataframe
+        save_columns = ["resn",
+                        "resi",
+                        "chain",
+                        "pka",
+                        "buried",
+                        "nil",
+                        "desolvation regular 1",
+                        "desolvation regular 2",
+                        "effects re 1",
+                        "effects re 2"]
+        data = pd.DataFrame(columns = save_columns, dtype = object)
+        for i in residues:
+            newline = pd.DataFrame([i], columns = save_columns)
+            data = pd.concat([data, newline],
+                             ignore_index = True)
+            
+        # Add the PDBid as a column
+        data["PDBid"] = filepath.split("pdb")[-1].split(".pka")[0]
+        
+        # Drop nil
+        data = data.drop(columns = ["nil"])
         
         return data
 
