@@ -1941,6 +1941,7 @@ class Sequence:
         # could put all the sequence functions in this class
 
 def get_human_uniprot_list(filepath = None):
+    print("Downloading human uniprot list.")
     df = pd.read_csv("https://piecole.com/data/uniprot_human.txt", sep = "\t")
     if filepath != None:
         assert isinstance(filepath, str), "Expected str for filepath, got " + repr(type(filepath))
