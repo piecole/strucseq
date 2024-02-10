@@ -1944,5 +1944,5 @@ def get_human_uniprot_list(filepath = None):
     df = pd.read_csv("https://piecole.com/data/uniprot_human.txt", sep = "\t")
     if filepath != None:
         assert isinstance(filepath, str), "Expected str for filepath, got " + repr(type(filepath))
-        df.to_csv(filepath, index = False)
+        df.to_csv(filepath, sep = "\t", index = False)
     return df
