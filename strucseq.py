@@ -358,7 +358,19 @@ def get_uniprot_details(unicode : str, debug = False) -> dict:
         print(f"Extracting Uniprot information from code: {unicode}.")
   
     #   Fetch the xml version of the uniprot site in beautifulsoup
-    soup = BeautifulSoup(requests.get(url).text, "lxml")
+    # Added try loop due to error: ConnectionError: ('Connection aborted.', RemoteDisconnected('Remote end closed connection without response'))
+    tries = 0
+    while tries < 10:
+        try:
+            soup = BeautifulSoup(requests.get(url).text, "lxml")
+        except:
+            print("Failed to fetch uniprot data, trying again.")
+            tries += 1
+            time.sleep(tries**2)
+    else:
+        print("Failed to fetch uniprot data repeatedly.")
+        soup = BeautifulSoup(requests.get(url).text, "lxml")
+
     
     #   Get the protein name.
     try:
@@ -1927,3 +1939,10 @@ class Sequence:
         # reverse_complement
         # get_structure (alphafold and or PDB)
         # could put all the sequence functions in this class
+
+def get_human_uniprot_list(filepath = None):
+    df = pd.read_csv("https://piecole.com/data/uniprot_human.txt", sep = "\t")
+    if filepath != None:
+        assert isinstance(filepath, str), "Expected str for filepath, got " + repr(type(filepath))
+        df.to_csv(filepath, index = False)
+    return df
