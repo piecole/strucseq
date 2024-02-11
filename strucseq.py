@@ -1571,7 +1571,6 @@ def run_propka(input_file, structure_folder = "pdb", structure_extension = "ent"
         The propka object. Also saves it to a file.
         
     """
-    
     worked = False
 
     # Check if propka is installed
@@ -1589,11 +1588,12 @@ def run_propka(input_file, structure_folder = "pdb", structure_extension = "ent"
     else:
         print("Going to comput propka for " + input_file + ".")
         structure_folder = parse_folder(structure_folder)
-        try:
-            path = glob.glob(structure_folder + "/**/" + input_file + "*.*" + structure_extension + "*", recursive = True)[0]
-        except:
-            print("No structure found for '" + input_file + "'.")
+        paths = glob.glob(structure_folder + "/**/" + input_file + "*.*" + structure_extension + "*", recursive = True)
+        if paths == []:    
+            print("No structure found with glob '" + structure_folder + "/**/" + input_file + "*.*" + structure_extension + "*" + "'.")
             return
+        path = paths[0]
+
         print("Calculating pKas with PROPKA and saving to file. Please cite:")
         print("Improved Treatment of Ligands and Coupling Effects in Empirical Calculation and Rationalization of pKa Values. Chresten R. Søndergaard, Mats H. M. Olsson, Michał Rostkowski, and Jan H. Jensen. Journal of Chemical Theory and Computation 2011 7 (7), 2284-2295. DOI: 10.1021/ct200133y")
 
@@ -1797,7 +1797,8 @@ def check_structure_for_proximal_atoms(structure,
                                        residue_2,
                                        atom_1 = "CA",
                                        atom_2 = "CA",
-                                       max_distance = 10):
+                                       max_distance = 10,
+                                       HSE = False):
     """
     Open a protein structure (or structure) and search for two
     residues that are within a specified distance of each other. Returning a list of
@@ -1805,7 +1806,7 @@ def check_structure_for_proximal_atoms(structure,
 
     Parameters
     ----------
-    structure_file : str or  Bio.PDB.Structure
+    structure : str or  Bio.PDB.Structure
         Structure or path to the structure file
     residue_1 : str
         Residue three letter code of the first residue
@@ -1817,6 +1818,8 @@ def check_structure_for_proximal_atoms(structure,
         Name of the atom in the second residue. Default is "CA"
     distance : int, optional
         Distance cutoff. Default is 10.
+    HSE : bool, optional
+        Whether to calculate HSE. Default is False.
 
     Returns
     -------
@@ -1825,7 +1828,12 @@ def check_structure_for_proximal_atoms(structure,
 
     Examples
     --------
-    check_structure_for_proximal_atoms("structures/A2A5R2.ent", "CYS", "CYS", atom_1 = "SG", atom_2 = "SG", max_distance = 5)    """
+    >>> check_structure_for_proximal_atoms("structures/A2A5R2.ent", "CYS", "CYS", atom_1 = "SG", atom_2 = "SG", max_distance = 5)
+
+    >>> check_structure_for_proximal_atoms("structures/A2A5R2.ent", "CYS", "CYS", atom_1 = "SG", atom_2 = "SG", max_distance = 5, HSE = True)
+    
+    """
+
 
     if isinstance(structure, str):
         # Make sure structure file exists
@@ -1836,6 +1844,7 @@ def check_structure_for_proximal_atoms(structure,
         assert isinstance(structure, Structure.Structure), "Expected Bio.PDB.Structure.Structure for structure, got " + repr(type(structure))
         structures = structure
     output_residues = []
+    print("Structures loaded: ", structures)
     for structure in structures:
         # Compile all the residues, so that intermolecular interactions can be
         # checked
@@ -1863,10 +1872,126 @@ def check_structure_for_proximal_atoms(structure,
                                         "residue number B" : residue_B.id[1],
                                         "chain B" : residue_B.chain.id,
                                         "distance" : distance}
+                        
+                        if HSE == True:
+                            res_HSE = get_res_HSE_structure(structure,
+                                                            residue_A.chain.id,
+                                                            residue_A.id[1],
+                                                            residue_B.chain.id,
+                                                            residue_B.id[1])
+                            
+                            output_dict["HSE A num1"] = res_HSE[0][0]
+                            output_dict["HSE A num2"] = res_HSE[0][1]
+                            output_dict["HSE B num1"] = res_HSE[1][0]
+                            output_dict["HSE B num2"] = res_HSE[1][1]                            
+
                         output_residues.append(output_dict)
             # Remove residue_A from residues so it wont get tested again
             residues.remove(residue_A)
     return output_residues
+
+def get_res_HSE_structure(structure,
+                            chain1,
+                            resn1,
+                            chain2 = None,
+                            resn2 = None,
+                            alternate = False,
+                            only_chains = False,
+                            fast = True):
+    model = structure
+        
+    # Creating feature that speeds up HSE algorithm by removing
+    # distant CA atoms before calculating.
+    if fast == True:
+        save_atoms = []
+        # Iterate through every atom, adding them to save_atoms
+        # if they are near the relevent one or two.
+        for chain in model:
+            for res in chain:
+                for atom in res:
+                    try:
+                        if atom.id == "CA" and atom - model[chain1][resn1]["CA"] < 13:
+                            save_atoms.append(atom)
+                        # If two residues provided, check the other
+                        # as well
+                        if chain2 != None and resn2 != None:
+                            if atom.id == "CA" and atom - model[chain2][resn2]["CA"] < 13:
+                                save_atoms.append(atom)
+                    except: 
+                        # Failed to find a target residue
+                        print(f"Failed to use fast HSE for.")
+                        # Stop trying to use feature that speeds up HSE
+                        fast = False
+                        break
+        
+        # Iterate through every CA atom, and remove it if it isn't
+        # in save_atoms .
+        if fast == True: # Check that saving proximal CAs worked before removing non-proximal CAs   
+            for chain in model:
+                for res in chain: 
+                    try:
+                        if res["CA"] not in save_atoms:
+                            chain.detach_child(res.id)
+                    except:
+                        pass
+        else:
+            print("Reverting to computing regular HSE.")
+    
+    # If we want to ignore other chains in the structure when
+    # computing HSE
+    if only_chains == True:
+        for a in range(len(model) + 1):
+            for i in model:
+                if i.id not in [chain1, chain2]:
+                    model.detach_child(i.id)
+
+    if alternate == False:
+        print("getting HSE for", chain1, resn1)
+        exp_ca = HSExposureCA(model)
+        try:
+            res_id1 = model[chain1][resn1].get_id()
+        except:
+            pass
+        
+        try:
+            info1 = exp_ca[(model[chain1].get_id(), res_id1)]
+            
+        except:
+            info1 = (np.NaN, np.NaN, 1)
+        if chain2 == False:
+            return info1
+        else:
+            try:
+                res_id2 = model[chain2][resn2].get_id()
+                print("res_id2:", res_id2)
+                info2 = exp_ca[(model[chain2].get_id(),res_id2)]
+            except:
+                info2 = (np.NaN, np.NaN, 1)
+            return [info1, 
+                    info2]
+    else:
+        hse = HSExposure()
+
+def get_res_HSE_file(PDB_file,
+                chain1,
+                resn1,
+                chain2 = None,
+                resn2 = None,
+                alternate = False,
+                only_chains = False,
+                fast = True): #get the half sphere exposure of the CA atom of a residue: https://biopython.org/wiki/The_Biopython_Structural_Bioinformatics_FAQ
+    
+    with gzip.open(PDB_file, "rt") as unzipped:
+        structure = parser.get_structure("struc", unzipped)
+        return get_res_HSE_structure(structure,
+                                chain1,
+                                resn1,
+                                chain2,
+                                resn2,
+                                alternate,
+                                only_chains,
+                                fast)
+        
 
 class Sequence:
     """
