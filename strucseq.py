@@ -1555,7 +1555,7 @@ def run_propka(input_file, structure_folder = "pdb", structure_extension = "ent"
     ----------
 
     input_file : str  
-        The name of the file to compute propka for.
+        The name of the structure to compute propka for (e.g. "3ii6").
     structure_folder : str, optional  
         The folder to look for the structure in. The default is "pdb".
     structure_extension : str, optional
@@ -1766,6 +1766,31 @@ def readpropka_better(filepath = None):
         data = data.drop(columns = ["nil"])
         
         return data
+    
+def read_propkas(folder = "propka/"):
+    """
+    Read every propka file in a folder and save it as a pandas dataframe.
+    
+    Parameters
+    ----------
+    folder : str, optional
+        Folder to read propka files from. The default is "propka/".
+
+    Returns
+    -------
+    pd.DataFrame
+    """
+
+    assert isinstance(folder, str), "Expected str for folder, got " + repr(type(folder))
+
+    files = glob.glob(folder + "*.pka")
+
+    datalist = []
+    for file in tqdm(files, desc = "Reading propka files"):
+        datalist.append(readpropka(file))
+    df = pd.concat(datalist, ignore_index = True)
+
+    return df
 
 def check_structure_for_proximal_atoms(structure,
                                        residue_1,
@@ -1829,7 +1854,8 @@ def check_structure_for_proximal_atoms(structure,
                     # Check the atoms are in the residues
                     assert atom_1 in [atom.get_id() for atom in residue_A], f"Atom {atom_1} not found in residue {residue_A.get_resname()}{residue_A.get_id()[1]}"
                     assert atom_2 in [atom.get_id() for atom in residue_B], f"Atom {atom_2} not found in residue {residue_B.get_resname()}{residue_B.get_id()[1]}"
-                    # Measure the distance between the atoms and document if it is
+                    # Measure the distance between the atoms and document if it
+                    # is short enough
                     distance = residue_A[atom_1] - residue_B[atom_2]
                     if distance < max_distance:
                         output_dict = {"residue number A" : residue_A.id[1],
