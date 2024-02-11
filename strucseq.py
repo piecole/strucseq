@@ -14,6 +14,7 @@ import glob
 import shutil
 import csv
 import re
+import statistics as stats
 
 try:
     import propka.run as pk
@@ -1798,7 +1799,8 @@ def check_structure_for_proximal_atoms(structure,
                                        atom_1 = "CA",
                                        atom_2 = "CA",
                                        max_distance = 10,
-                                       HSE = False):
+                                       HSE = False,
+                                       b_factor = None):
     """
     Open a protein structure (or structure) and search for two
     residues that are within a specified distance of each other. Returning a list of
@@ -1820,6 +1822,8 @@ def check_structure_for_proximal_atoms(structure,
         Distance cutoff. Default is 10.
     HSE : bool, optional
         Whether to calculate HSE. Default is False.
+    b_factor : string, optional
+        Whether to save b-factors. Options are "one", "two". Default is None.
 
     Returns
     -------
@@ -1832,8 +1836,16 @@ def check_structure_for_proximal_atoms(structure,
 
     >>> check_structure_for_proximal_atoms("structures/A2A5R2.ent", "CYS", "CYS", atom_1 = "SG", atom_2 = "SG", max_distance = 5, HSE = True)
     
+    >>> check_structure_for_proximal_atoms("structures/A2A5R2.ent", "CYS", "CYS", atom_1 = "SG", atom_2 = "SG", max_distance = 5, b_factor = "one")
     """
 
+    assert isinstance(residue_1, str), "Expected str for residue_1, got " + repr(type(residue_1))
+    assert isinstance(residue_2, str), "Expected str for residue_2, got " + repr(type(residue_2))
+    assert isinstance(atom_1, str), "Expected str for atom_1, got " + repr(type(atom_1))
+    assert isinstance(atom_2, str), "Expected str for atom_2, got " + repr(type(atom_2))
+    assert isinstance(max_distance, (int, float)), "Expected int or float for max_distance, got " + repr(type(max_distance))
+    assert isinstance(HSE, bool), "Expected bool for HSE, got " + repr(type(HSE))
+    assert b_factor in [None, "one", "two"], "Expected None, 'one', or 'two' for b_factor, got " + repr(b_factor)
 
     if isinstance(structure, str):
         # Make sure structure file exists
@@ -1844,16 +1856,28 @@ def check_structure_for_proximal_atoms(structure,
         assert isinstance(structure, Structure.Structure), "Expected Bio.PDB.Structure.Structure for structure, got " + repr(type(structure))
         structures = structure
     output_residues = []
-    print("Structures loaded: ", structures)
+    #print("Structures loaded: ", structures)
     for structure in structures:
         # Compile all the residues, so that intermolecular interactions can be
         # checked
         residues = []
         for chain in structure:
+
+            # Save all the b_factors to be added to every residue
+            if b_factor is not None:
+                b_factors = []
+                for residue in chain:
+                    # Calculate mean bfactor of atoms in the residue
+                    b_factors.append(stats.mean([atom.get_bfactor() for atom in residue]))
+
             for residue in chain:
                 # Only keep relevent residues
                 if residue.get_resname() == residue_1 or residue.get_resname() == residue_2:
                     residue.chain = chain
+                    
+                    if b_factor is not None:
+                        residue.b_factor = b_factors
+
                     residues.append(residue)
         # Iterate through and measure the distance between all the residues
         for residue_A in residues:
@@ -1883,7 +1907,14 @@ def check_structure_for_proximal_atoms(structure,
                             output_dict["HSE A num1"] = res_HSE[0][0]
                             output_dict["HSE A num2"] = res_HSE[0][1]
                             output_dict["HSE B num1"] = res_HSE[1][0]
-                            output_dict["HSE B num2"] = res_HSE[1][1]                            
+                            output_dict["HSE B num2"] = res_HSE[1][1]
+
+                        if b_factor is not None:
+                            if b_factor == "one":
+                                output_dict["b factors"] = residue_A.b_factor
+                            if b_factor == "two":
+                                output_dict["b factors A"] = residue_A.b_factor
+                                output_dict["b factors B"] = residue_B.b_factor              
 
                         output_residues.append(output_dict)
             # Remove residue_A from residues so it wont get tested again
@@ -1919,7 +1950,7 @@ def get_res_HSE_structure(structure,
                                 save_atoms.append(atom)
                     except: 
                         # Failed to find a target residue
-                        print(f"Failed to use fast HSE for.")
+                        #print(f"Failed to use fast HSE.")
                         # Stop trying to use feature that speeds up HSE
                         fast = False
                         break
@@ -1935,7 +1966,8 @@ def get_res_HSE_structure(structure,
                     except:
                         pass
         else:
-            print("Reverting to computing regular HSE.")
+            pass
+            #print("Reverting to computing regular HSE.")
     
     # If we want to ignore other chains in the structure when
     # computing HSE
@@ -1946,7 +1978,6 @@ def get_res_HSE_structure(structure,
                     model.detach_child(i.id)
 
     if alternate == False:
-        print("getting HSE for", chain1, resn1)
         exp_ca = HSExposureCA(model)
         try:
             res_id1 = model[chain1][resn1].get_id()
@@ -1963,7 +1994,6 @@ def get_res_HSE_structure(structure,
         else:
             try:
                 res_id2 = model[chain2][resn2].get_id()
-                print("res_id2:", res_id2)
                 info2 = exp_ca[(model[chain2].get_id(),res_id2)]
             except:
                 info2 = (np.NaN, np.NaN, 1)
