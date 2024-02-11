@@ -1548,7 +1548,12 @@ def get_PDB_structure(pdb_id : str, folder : str = "structures", extension = "en
 
 import propka.run as pk
 
-def run_propka(input_file, structure_folder = "pdb", structure_extension = "ent", propka_folder = "propka/", check = True):
+def run_propka(input_file,
+               structure_folder = "pdb",
+               structure_extension = "ent",
+               propka_folder = "propka/",
+               check = True,
+               silence = False):
     """
     Checks if a propka file exists, if not then it attempts to make compute one
 
@@ -1565,7 +1570,9 @@ def run_propka(input_file, structure_folder = "pdb", structure_extension = "ent"
         The folder to save the propka file in. The default is "propka/".
     check : bool, optional
         Whether to check if the propka file exists before computing it. The default is True.
-
+    silence : bool, optional
+        Whether to print messages as it goes. The default is False.
+        
     Returns
     -------
     i : propka.run.single
@@ -1584,10 +1591,12 @@ def run_propka(input_file, structure_folder = "pdb", structure_extension = "ent"
     propka_path = propka_folder + "pdb" + input_file + ".pka"
     # Check if the propka file exists
     if os.path.exists(propka_path) and check:
-        print(propka_path + f" already exists at {propka_path}. If you want to recompute it, set check = False.")
+        if silence == False:
+            print(propka_path + f" already exists at {propka_path}. If you want to recompute it, set check = False.")
         return
     else:
-        print("Going to comput propka for " + input_file + ".")
+        if silence == False:
+            print("Going to comput propka for " + input_file + ".")
         structure_folder = parse_folder(structure_folder)
         paths = glob.glob(structure_folder + "/**/" + input_file + "*.*" + structure_extension + "*", recursive = True)
         if paths == []:    
@@ -1595,8 +1604,9 @@ def run_propka(input_file, structure_folder = "pdb", structure_extension = "ent"
             return
         path = paths[0]
 
-        print("Calculating pKas with PROPKA and saving to file. Please cite:")
-        print("Improved Treatment of Ligands and Coupling Effects in Empirical Calculation and Rationalization of pKa Values. Chresten R. Søndergaard, Mats H. M. Olsson, Michał Rostkowski, and Jan H. Jensen. Journal of Chemical Theory and Computation 2011 7 (7), 2284-2295. DOI: 10.1021/ct200133y")
+        if silence == False:
+            print("Calculating pKas with PROPKA and saving to file. Please cite:")
+            print("Improved Treatment of Ligands and Coupling Effects in Empirical Calculation and Rationalization of pKa Values. Chresten R. Søndergaard, Mats H. M. Olsson, Michał Rostkowski, and Jan H. Jensen. Journal of Chemical Theory and Computation 2011 7 (7), 2284-2295. DOI: 10.1021/ct200133y")
 
         try:
             if "gz" in path:
@@ -1607,7 +1617,8 @@ def run_propka(input_file, structure_folder = "pdb", structure_extension = "ent"
                     i = pk.single(path.split(structure_extension)[0] + "pdb", optargs = ["-q"], stream = f)
             worked = True
         except:
-            print("PROPKA failed for: ", input_file)
+            if silence == False:
+                print("PROPKA failed for: ", input_file)
             with open("PROPKA failed for.txt", "a") as file:
                 file.write(input_file + "\r")
             
@@ -2021,7 +2032,37 @@ def get_res_HSE_file(PDB_file,
                                 alternate,
                                 only_chains,
                                 fast)
-        
+
+def assess_intramolecular_confidence(resnum1 : int, resnum2 : int, confidences : list):
+    """
+    Take two residues (non-pythonic numbering starting at 1) and the list
+    of alphafold confidences for residues in the chain and assess the
+    confidence of the interaction between the two residues.
+
+    According to alphafold website, anything above 70 is high.
+
+    Parameters
+    ----------
+    resnum1 : int
+        Residue number of the first residue.
+    resnum2 : int
+        Residue number of the second residue.
+    confidences : list
+        List of confidences for the chain.
+
+    Returns
+    -------
+    float
+        Confidence of the interaction between the two residues inclusive.
+
+    """
+
+    resnum1 -= 1
+    resnum2 -= 1
+    lowest = min(resnum1, resnum2)
+    highest = max(resnum1, resnum2)
+
+    return min(confidences[lowest - 1:highest])
 
 class Sequence:
     """
