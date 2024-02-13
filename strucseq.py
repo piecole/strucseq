@@ -14,6 +14,7 @@ import glob
 import shutil
 import csv
 import re
+import statistics as stats
 
 try:
     import propka.run as pk
@@ -1555,7 +1556,12 @@ def get_PDB_structure(pdb_id : str, folder : str = "structures", extension = "en
 
 import propka.run as pk
 
-def run_propka(input_file, structure_folder = "pdb", structure_extension = "ent", propka_folder = "propka/", check = True):
+def run_propka(input_file,
+               structure_folder = "pdb",
+               structure_extension = "ent",
+               propka_folder = "propka/",
+               check = True,
+               silence = False):
     """
     Checks if a propka file exists, if not then it attempts to make compute one
 
@@ -1572,7 +1578,9 @@ def run_propka(input_file, structure_folder = "pdb", structure_extension = "ent"
         The folder to save the propka file in. The default is "propka/".
     check : bool, optional
         Whether to check if the propka file exists before computing it. The default is True.
-
+    silence : bool, optional
+        Whether to print messages as it goes. The default is False.
+        
     Returns
     -------
     i : propka.run.single
@@ -1591,10 +1599,12 @@ def run_propka(input_file, structure_folder = "pdb", structure_extension = "ent"
     propka_path = propka_folder + "pdb" + input_file + ".pka"
     # Check if the propka file exists
     if os.path.exists(propka_path) and check:
-        print(propka_path + f" already exists at {propka_path}. If you want to recompute it, set check = False.")
+        if silence == False:
+            print(propka_path + f" already exists at {propka_path}. If you want to recompute it, set check = False.")
         return
     else:
-        print("Going to comput propka for " + input_file + ".")
+        if silence == False:
+            print("Going to comput propka for " + input_file + ".")
         structure_folder = parse_folder(structure_folder)
         paths = glob.glob(structure_folder + "/**/" + input_file + "*.*" + structure_extension + "*", recursive = True)
         if paths == []:    
@@ -1602,8 +1612,9 @@ def run_propka(input_file, structure_folder = "pdb", structure_extension = "ent"
             return
         path = paths[0]
 
-        print("Calculating pKas with PROPKA and saving to file. Please cite:")
-        print("Improved Treatment of Ligands and Coupling Effects in Empirical Calculation and Rationalization of pKa Values. Chresten R. Søndergaard, Mats H. M. Olsson, Michał Rostkowski, and Jan H. Jensen. Journal of Chemical Theory and Computation 2011 7 (7), 2284-2295. DOI: 10.1021/ct200133y")
+        if silence == False:
+            print("Calculating pKas with PROPKA and saving to file. Please cite:")
+            print("Improved Treatment of Ligands and Coupling Effects in Empirical Calculation and Rationalization of pKa Values. Chresten R. Søndergaard, Mats H. M. Olsson, Michał Rostkowski, and Jan H. Jensen. Journal of Chemical Theory and Computation 2011 7 (7), 2284-2295. DOI: 10.1021/ct200133y")
 
         try:
             if "gz" in path:
@@ -1614,7 +1625,8 @@ def run_propka(input_file, structure_folder = "pdb", structure_extension = "ent"
                     i = pk.single(path.split(structure_extension)[0] + "pdb", optargs = ["-q"], stream = f)
             worked = True
         except:
-            print("PROPKA failed for: ", input_file)
+            if silence == False:
+                print("PROPKA failed for: ", input_file)
             with open("PROPKA failed for.txt", "a") as file:
                 file.write(input_file + "\r")
             
@@ -1806,7 +1818,8 @@ def check_structure_for_proximal_atoms(structure,
                                        atom_1 = "CA",
                                        atom_2 = "CA",
                                        max_distance = 10,
-                                       HSE = False):
+                                       HSE = False,
+                                       b_factor = None):
     """
     Open a protein structure (or structure) and search for two
     residues that are within a specified distance of each other. Returning a list of
@@ -1828,6 +1841,8 @@ def check_structure_for_proximal_atoms(structure,
         Distance cutoff. Default is 10.
     HSE : bool, optional
         Whether to calculate HSE. Default is False.
+    b_factor : string, optional
+        Whether to save b-factors. Options are "one", "two". Default is None.
 
     Returns
     -------
@@ -1840,8 +1855,16 @@ def check_structure_for_proximal_atoms(structure,
 
     >>> check_structure_for_proximal_atoms("structures/A2A5R2.ent", "CYS", "CYS", atom_1 = "SG", atom_2 = "SG", max_distance = 5, HSE = True)
     
+    >>> check_structure_for_proximal_atoms("structures/A2A5R2.ent", "CYS", "CYS", atom_1 = "SG", atom_2 = "SG", max_distance = 5, b_factor = "one")
     """
 
+    assert isinstance(residue_1, str), "Expected str for residue_1, got " + repr(type(residue_1))
+    assert isinstance(residue_2, str), "Expected str for residue_2, got " + repr(type(residue_2))
+    assert isinstance(atom_1, str), "Expected str for atom_1, got " + repr(type(atom_1))
+    assert isinstance(atom_2, str), "Expected str for atom_2, got " + repr(type(atom_2))
+    assert isinstance(max_distance, (int, float)), "Expected int or float for max_distance, got " + repr(type(max_distance))
+    assert isinstance(HSE, bool), "Expected bool for HSE, got " + repr(type(HSE))
+    assert b_factor in [None, "one", "two"], "Expected None, 'one', or 'two' for b_factor, got " + repr(b_factor)
 
     if isinstance(structure, str):
         # Make sure structure file exists
@@ -1852,16 +1875,28 @@ def check_structure_for_proximal_atoms(structure,
         assert isinstance(structure, Structure.Structure), "Expected Bio.PDB.Structure.Structure for structure, got " + repr(type(structure))
         structures = structure
     output_residues = []
-    print("Structures loaded: ", structures)
+    #print("Structures loaded: ", structures)
     for structure in structures:
         # Compile all the residues, so that intermolecular interactions can be
         # checked
         residues = []
         for chain in structure:
+
+            # Save all the b_factors to be added to every residue
+            if b_factor is not None:
+                b_factors = []
+                for residue in chain:
+                    # Calculate mean bfactor of atoms in the residue
+                    b_factors.append(stats.mean([atom.get_bfactor() for atom in residue]))
+
             for residue in chain:
                 # Only keep relevent residues
                 if residue.get_resname() == residue_1 or residue.get_resname() == residue_2:
                     residue.chain = chain
+                    
+                    if b_factor is not None:
+                        residue.b_factor = b_factors
+
                     residues.append(residue)
         # Iterate through and measure the distance between all the residues
         for residue_A in residues:
@@ -1891,7 +1926,14 @@ def check_structure_for_proximal_atoms(structure,
                             output_dict["HSE A num1"] = res_HSE[0][0]
                             output_dict["HSE A num2"] = res_HSE[0][1]
                             output_dict["HSE B num1"] = res_HSE[1][0]
-                            output_dict["HSE B num2"] = res_HSE[1][1]                            
+                            output_dict["HSE B num2"] = res_HSE[1][1]
+
+                        if b_factor is not None:
+                            if b_factor == "one":
+                                output_dict["b factors"] = residue_A.b_factor
+                            if b_factor == "two":
+                                output_dict["b factors A"] = residue_A.b_factor
+                                output_dict["b factors B"] = residue_B.b_factor              
 
                         output_residues.append(output_dict)
             # Remove residue_A from residues so it wont get tested again
@@ -1927,7 +1969,7 @@ def get_res_HSE_structure(structure,
                                 save_atoms.append(atom)
                     except: 
                         # Failed to find a target residue
-                        print(f"Failed to use fast HSE for.")
+                        #print(f"Failed to use fast HSE.")
                         # Stop trying to use feature that speeds up HSE
                         fast = False
                         break
@@ -1943,7 +1985,8 @@ def get_res_HSE_structure(structure,
                     except:
                         pass
         else:
-            print("Reverting to computing regular HSE.")
+            pass
+            #print("Reverting to computing regular HSE.")
     
     # If we want to ignore other chains in the structure when
     # computing HSE
@@ -1954,7 +1997,6 @@ def get_res_HSE_structure(structure,
                     model.detach_child(i.id)
 
     if alternate == False:
-        print("getting HSE for", chain1, resn1)
         exp_ca = HSExposureCA(model)
         try:
             res_id1 = model[chain1][resn1].get_id()
@@ -1971,7 +2013,6 @@ def get_res_HSE_structure(structure,
         else:
             try:
                 res_id2 = model[chain2][resn2].get_id()
-                print("res_id2:", res_id2)
                 info2 = exp_ca[(model[chain2].get_id(),res_id2)]
             except:
                 info2 = (np.NaN, np.NaN, 1)
@@ -1999,7 +2040,37 @@ def get_res_HSE_file(PDB_file,
                                 alternate,
                                 only_chains,
                                 fast)
-        
+
+def assess_intramolecular_confidence(resnum1 : int, resnum2 : int, confidences : list):
+    """
+    Take two residues (non-pythonic numbering starting at 1) and the list
+    of alphafold confidences for residues in the chain and assess the
+    confidence of the interaction between the two residues.
+
+    According to alphafold website, anything above 70 is high.
+
+    Parameters
+    ----------
+    resnum1 : int
+        Residue number of the first residue.
+    resnum2 : int
+        Residue number of the second residue.
+    confidences : list
+        List of confidences for the chain.
+
+    Returns
+    -------
+    float
+        Confidence of the interaction between the two residues inclusive.
+
+    """
+
+    resnum1 -= 1
+    resnum2 -= 1
+    lowest = min(resnum1, resnum2)
+    highest = max(resnum1, resnum2)
+
+    return min(confidences[lowest - 1:highest])
 
 class Sequence:
     """
