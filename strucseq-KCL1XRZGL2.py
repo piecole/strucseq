@@ -5,15 +5,11 @@ import pandas as pd
 import numpy as np
 import gzip
 from Bio.PDB import *
-from Bio.Blast import NCBIWWW
-from Bio.Blast import NCBIXML
 from typing import Union
 import ast
 import os
 import glob
 import shutil
-import csv
-import re
 
 try:
     import propka.run as pk
@@ -358,22 +354,7 @@ def get_uniprot_details(unicode : str, debug = False) -> dict:
         print(f"Extracting Uniprot information from code: {unicode}.")
   
     #   Fetch the xml version of the uniprot site in beautifulsoup
-    # Added try loop due to error: ConnectionError: ('Connection aborted.', RemoteDisconnected('Remote end closed connection without response'))
-    tries = 0
-    while tries < 10:
-        try:
-            if debug == True:
-                print(f"Accessing {url}")
-            soup = BeautifulSoup(requests.get(url).text, "lxml")
-            break
-        except:
-            print("Failed to fetch uniprot data, trying again.")
-            tries += 1
-            time.sleep(tries**2)
-    else:
-        print("Failed to fetch uniprot data repeatedly.")
-        soup = BeautifulSoup(requests.get(url).text, "lxml")
-
+    soup = BeautifulSoup(requests.get(url).text, "lxml")
     
     #   Get the protein name.
     try:
@@ -647,13 +628,7 @@ def iterate_uniprot_details_OLD(in_csv : str, out_csv : str, uniprot_csv : str =
     #save all this as a new CSV 
     data.to_csv(out_csv, sep="\t", index = False)
     
-def iterate_uniprot_details(in_csv : str,
-                            chain_cols : list,
-                            out_csv : str,
-                            delimiter : str = "\t",
-                            uniprot_csv : str = None,
-                            species : str = None,
-                            debug = True):
+def iterate_uniprot_details(in_csv : str, chain_cols : list, out_csv : str, delimiter : str = "\t", uniprot_csv : str = None, species : str = None, debug = True):
     """
     Takes an input pandas DataFrame or CSV file, uses uniprot accessions and provided chain column(s)
     to add uniprot information columns to the data, which is then output as another CSV.
@@ -694,7 +669,7 @@ def iterate_uniprot_details(in_csv : str,
     EDITING TO BE NON SPECIFIC
 
     """
-
+    
     #   Converts the screen product and uniprot csvs to pandas dataframes
     if isinstance(in_csv, str):
         data = pd.read_csv(in_csv, delimiter = delimiter)
@@ -706,7 +681,7 @@ def iterate_uniprot_details(in_csv : str,
         chain_cols = [chain_cols]
     
     #   Combines the known uniprot accessions into the screen product dataframe
-    for chain_col in chain_cols: #  Adds the uniprot based on on 'a chain' then 'b chain'
+    for chain_col in chains_cols: #  Adds the uniprot based on on 'a chain' then 'b chain'
         if uniprot_csv != None: #   If uniprot_csv was specified, then add this to the dataframe
             data = pd.merge(data, uniprot_csv, how = "left", left_on=["PDBid", chain_col], right_on=["PDB", "chain"]) #  Looks at the chain letter and pdb accession code and adds the row from the uniprot dataframe
             data = data.drop(["PDB", "chain"], axis = 1) #  Removes the added PDB code and chain since this information is duplicate
@@ -716,22 +691,22 @@ def iterate_uniprot_details(in_csv : str,
             else:
                 data = data.rename(columns = {"uniprot" : chain_col + " " + species + " accession code"})
     
-    # Copy to a new DataFrame that includes only the non-duplicated
-    # columns from the original DataFrame.
     data = data.loc[:,~data.columns.duplicated()].copy()
     
-    # If a species is specified, then look in that column for the accession
-    # code, otherwise look in default column defined by the species.
+    #if a species is specified, then look in that column for the accession code otherwise look in default column
     accession_columns = ["a", "b"]
-    if species is None:
-        accession_columns = ["uniprot " + x for x in accession_columns] #default column
+    if species == None:
+        accession_columns = ["uniprot " + x for x in chains] #default column
     else:
-        assert isinstance(species, str), "Expected species as string, found " + repr(species)
-        accession_columns = [x + " " + species + " accession code" for x in accession_columns]
+        try:
+            accession_columns = [x + " " + species + " accession code" for x in chains]
+        except:
+            raise Exception("Expected species as string, got " + repr(species))
     
     #accesses the internet using the new uniprots to get uniprot data using get_uniprot_details()
     #creates a new series of unique uniprot codes
             
+    #GOT TO ABOUT HERE FOR EDITING
     uniqueuniprots = pd.concat([data["uniprot a"], data["uniprot b"]],
                                ignore_index = True).reset_index(drop = True).drop_duplicates()
     uniqueuniprots = pd.DataFrame(uniqueuniprots) #turns this series into a 1 column dataframe
@@ -745,12 +720,9 @@ def iterate_uniprot_details(in_csv : str,
     testset["uniprot"] = "Q13426"
     dataset = pd.DataFrame(columns = testset.keys()) #creates a new empty dataframe with those columns
     
-    # Iterates through the uniprots and gets the extra information from
-    # the internet added to the new dataset dataframe
+    #iterates through the uniprots and gets the extra information from the internet added to the new dataset dataframe
     dex = 0
-    for index, row in tqdm(uniqueuniprots.iterrows(),
-                           total = uniqueuniprots.shape[0],
-                           desc = "Iterating through uniprot site for uniprot details."): #iterates through the unique uniprots
+    for index, row in tqdm(uniqueuniprots.iterrows(), total = uniqueuniprots.shape[0]): #iterates through the unique uniprots
         #print(dex, "/", uniqueuniprots.size) #indicates the progress
         dex = dex + 1
         
@@ -779,7 +751,7 @@ def iterate_uniprot_details(in_csv : str,
         data = data.drop(["uniprot"], axis = 1) #drop the new uniprot column since it is a duplicate
         data = data.rename(columns = dict(zip(newinfo.keys(), species + chain + " " + newinfo.keys()))) #renames the new columns to specify their chains
     
-    #save all this as a new CSV
+    #save all this as a new CSV 
     data.to_csv(out_csv, sep="\t", index = False)
 
 parser = PDBParser()
@@ -1510,7 +1482,7 @@ def PDBsearch(query : str) -> list:
     # Make the query
     query = PDBquery(query)
     # Execute the query
-    results = list(set(query()))
+    results = set(query())
 
     return results
 
@@ -1563,7 +1535,7 @@ def run_propka(input_file, structure_folder = "pdb", structure_extension = "ent"
     ----------
 
     input_file : str  
-        The name of the structure to compute propka for (e.g. "3ii6").
+        The name of the file to compute propka for.
     structure_folder : str, optional  
         The folder to look for the structure in. The default is "pdb".
     structure_extension : str, optional
@@ -1579,6 +1551,7 @@ def run_propka(input_file, structure_folder = "pdb", structure_extension = "ent"
         The propka object. Also saves it to a file.
         
     """
+    
     worked = False
 
     # Check if propka is installed
@@ -1588,20 +1561,18 @@ def run_propka(input_file, structure_folder = "pdb", structure_extension = "ent"
         raise Exception("PROPKA not installed. Please install to use this function.")
 
     propka_folder = parse_folder(propka_folder)
-    propka_path = propka_folder + "pdb" + input_file + ".pka"
-    # Check if the propka file exists
+    propka_path = propka_folder + input_file + ".pka"
+    # Check if that exists
     if os.path.exists(propka_path) and check:
-        print(propka_path + f" already exists at {propka_path}. If you want to recompute it, set check = False.")
+        print(propka_path + " already exists.")
         return
     else:
-        print("Going to comput propka for " + input_file + ".")
         structure_folder = parse_folder(structure_folder)
-        paths = glob.glob(structure_folder + "/**/" + input_file + "*.*" + structure_extension + "*", recursive = True)
-        if paths == []:    
-            print("No structure found with glob '" + structure_folder + "/**/" + input_file + "*.*" + structure_extension + "*" + "'.")
+        try:
+            path = glob.glob(structure_folder + "/**/" + input_file + "*.*" + structure_extension + "*", recursive = True)[0]
+        except:
+            print("No structure found for " + input_file + ".")
             return
-        path = paths[0]
-
         print("Calculating pKas with PROPKA and saving to file. Please cite:")
         print("Improved Treatment of Ligands and Coupling Effects in Empirical Calculation and Rationalization of pKa Values. Chresten R. Søndergaard, Mats H. M. Olsson, Michał Rostkowski, and Jan H. Jensen. Journal of Chemical Theory and Computation 2011 7 (7), 2284-2295. DOI: 10.1021/ct200133y")
 
@@ -1623,190 +1594,12 @@ def run_propka(input_file, structure_folder = "pdb", structure_extension = "ent"
         shutil.move(path.split("\\")[-1].split("ent")[0] + "pka", propka_path.replace("/", "/pdb"))
         return i
 
-# CYSTEINE SPECIFIC, MAKE NON CYSTEINE SPECIFIC
-def readpropka(filepath): #reads a propka file, saving the cysteines
-    found = False
-    try:
-        with open(filepath, mode = "r") as thisFile:
-            found = True
-            pkadatareader = csv.reader(thisFile, delimiter = " ")
-            pkadata = []
-            for pkaline in pkadatareader:
-                while '' in pkaline:
-                    pkaline.remove('')
-                pkadata.append(pkaline)
-    except:
-        print(filepath, "not found")
-    
-    if found == True:
-        # Save the cysteine rows as a list
-        # Previously didn't work with 4-digit residue numbers or more, so changed it.
-        cysteines = [i for i in [a for a in pkadata if len(a) > 5] if i[0][0:3] == "CYS"]
-
-        # Deal with the stupid formatting which means some bits of data join onto each other,
-        # by splittting these bits of data in two
-        for cysteine in cysteines:
-            
-            # Separate the residue number from the residue name in cases where residue
-            # number was digits or more.
-            if len(cysteine[0]) > 3:
-                cysteine.insert(1, re.split("(\d+)", cysteine[0])[0])
-                cysteine.insert(2, re.split("(\d+)", cysteine[0])[1])
-                cysteine.pop(0)            
-
-            if len(cysteine) < 16:
-                for i in range(7):
-                    cysteine.insert(3, '') # add extra spaces to the bond rows
-            if len(cysteine) > 13:
-                if(len(cysteine[11]) > 3):
-                    cysteine.insert(12, re.split("(\d+)", cysteine[11])[0])
-                    cysteine.insert(13, re.split("(\d+)", cysteine[11])[1])
-                    cysteine.pop(11)
-                if(len(cysteine[15]) > 3):
-                    cysteine.insert(16, re.split("(\d+)", cysteine[15])[0])
-                    cysteine.insert(17, re.split("(\d+)", cysteine[15])[1])
-                    cysteine.pop(15)
-                if(len(cysteine[19]) > 3):
-                    cysteine.insert(20, re.split("(\d+)", cysteine[19])[0])
-                    cysteine.insert(21, re.split("(\d+)", cysteine[19])[1])
-                    cysteine.pop(19)
-        
-        #remove the bond rows (only keep the actual cysteine)
-        cysteines = [i[:10] for i in cysteines if i[3] != ""]
-        
-        #turn cysteines into a pandas dataframe
-        save_columns = ["resn", "resi", "chain", "pka", "buried", "nil", "desolvation regular 1", "desolvation regular 2", "effects re 1", "effects re 2"]
-        data = pd.DataFrame(columns = save_columns, dtype = object)
-        for i in cysteines:
-            # Turn list into a dataframe column
-            newline = pd.DataFrame([i], columns = save_columns)
-            data = pd.concat([data, newline],
-                             ignore_index = True)
-            
-        #add the PDBid as a column
-        data["PDBid"] = filepath.split("pdb")[-1].split(".pka")[0]
-        
-        #drop nil
-        data = data.drop(columns = ["nil", "resn"])
-        
-        return data
-
-# MAKING NON CYSTEINE SPECIFIC
-def readpropka_better(filepath = None):
-    """
-    Reads a propka file, extracting PROPKA info about each residue.
-    CAN THIS DEAL WITH NMR? CAN PROPKA NOT DEAL WITH NMR?
-    """
-    found = False
-    pkadata = []
-    try:
-        with open(filepath, mode = "r") as thisFile:
-            pkadatareader = csv.reader(thisFile, delimiter = " ")
-            for pkaline in pkadatareader:
-                while '' in pkaline:
-                    pkaline.remove('')
-                pkadata.append(pkaline)
-            found = True
-    except:
-        print(filepath, "not found")
-    
-    if found == True:
-        # Save the residues rows as a list
-        # Previously didn't work with 4-digit residue numbers or more,
-        # so changed it.
-        for i in pkadata:
-            print(i)
-        residues = [i for i in [a for a in pkadata if len(a) > 5] if i[0][0:3] in threeletter and i[0][0:6] != "PROPKA"]
-        for i in residues:
-            print(i)
-        # Deal with the stupid formatting which means some bits of
-        # data join onto each other, by splittting these bits of data in two
-        for residue in residues:
-            # Separate the residue number from the residue name in cases where residue
-            # number was digits or more.
-            if len(residue[0]) > 3:
-                residue.insert(1, re.split("(\d+)", residue[0])[0])
-                residue.insert(2, re.split("(\d+)", residue[0])[1])
-                residue.pop(0)            
-
-            if len(residue) < 16:
-                for i in range(7):
-                    residue.insert(3, '') # add extra spaces to the bond rows
-            if len(residue) > 13:
-                if(len(residue[11]) > 3):
-                    residue.insert(12, re.split("(\d+)", residue[11])[0])
-                    residue.insert(13, re.split("(\d+)", residue[11])[1])
-                    residue.pop(11)
-                if(len(residue[15]) > 3):
-                    residue.insert(16, re.split("(\d+)", residue[15])[0])
-                    print(residue)
-                    residue.insert(17, re.split("(\d+)", residue[15])[1])
-                    residue.pop(15)
-                if(len(residue[19]) > 3):
-                    residue.insert(20, re.split("(\d+)", residue[19])[0])
-                    residue.insert(21, re.split("(\d+)", residue[19])[1])
-                    residue.pop(19)
-        
-        # Remove the bond rows (only keep the actual residue)
-        residues = [i[:10] for i in residues if i[3] != ""]
-        
-        # Turn list of residues into a pandas dataframe
-        save_columns = ["resn",
-                        "resi",
-                        "chain",
-                        "pka",
-                        "buried",
-                        "nil",
-                        "desolvation regular 1",
-                        "desolvation regular 2",
-                        "effects re 1",
-                        "effects re 2"]
-        data = pd.DataFrame(columns = save_columns, dtype = object)
-        for i in residues:
-            newline = pd.DataFrame([i], columns = save_columns)
-            data = pd.concat([data, newline],
-                             ignore_index = True)
-            
-        # Add the PDBid as a column
-        data["PDBid"] = filepath.split("pdb")[-1].split(".pka")[0]
-        
-        # Drop nil
-        data = data.drop(columns = ["nil"])
-        
-        return data
-    
-def read_propkas(folder = "propka/"):
-    """
-    Read every propka file in a folder and save it as a pandas dataframe.
-    
-    Parameters
-    ----------
-    folder : str, optional
-        Folder to read propka files from. The default is "propka/".
-
-    Returns
-    -------
-    pd.DataFrame
-    """
-
-    assert isinstance(folder, str), "Expected str for folder, got " + repr(type(folder))
-
-    files = glob.glob(folder + "*.pka")
-
-    datalist = []
-    for file in tqdm(files, desc = "Reading propka files"):
-        datalist.append(readpropka(file))
-    df = pd.concat(datalist, ignore_index = True)
-
-    return df
-
 def check_structure_for_proximal_atoms(structure,
                                        residue_1,
                                        residue_2,
                                        atom_1 = "CA",
                                        atom_2 = "CA",
-                                       max_distance = 10,
-                                       HSE = False):
+                                       max_distance = 10):
     """
     Open a protein structure (or structure) and search for two
     residues that are within a specified distance of each other. Returning a list of
@@ -1814,7 +1607,7 @@ def check_structure_for_proximal_atoms(structure,
 
     Parameters
     ----------
-    structure : str or  Bio.PDB.Structure
+    structure_file : str or  Bio.PDB.Structure
         Structure or path to the structure file
     residue_1 : str
         Residue three letter code of the first residue
@@ -1826,8 +1619,6 @@ def check_structure_for_proximal_atoms(structure,
         Name of the atom in the second residue. Default is "CA"
     distance : int, optional
         Distance cutoff. Default is 10.
-    HSE : bool, optional
-        Whether to calculate HSE. Default is False.
 
     Returns
     -------
@@ -1836,12 +1627,7 @@ def check_structure_for_proximal_atoms(structure,
 
     Examples
     --------
-    >>> check_structure_for_proximal_atoms("structures/A2A5R2.ent", "CYS", "CYS", atom_1 = "SG", atom_2 = "SG", max_distance = 5)
-
-    >>> check_structure_for_proximal_atoms("structures/A2A5R2.ent", "CYS", "CYS", atom_1 = "SG", atom_2 = "SG", max_distance = 5, HSE = True)
-    
-    """
-
+    check_structure_for_proximal_atoms("structures/A2A5R2.ent", "CYS", "CYS", atom_1 = "SG", atom_2 = "SG", max_distance = 5)    """
 
     if isinstance(structure, str):
         # Make sure structure file exists
@@ -1852,7 +1638,6 @@ def check_structure_for_proximal_atoms(structure,
         assert isinstance(structure, Structure.Structure), "Expected Bio.PDB.Structure.Structure for structure, got " + repr(type(structure))
         structures = structure
     output_residues = []
-    print("Structures loaded: ", structures)
     for structure in structures:
         # Compile all the residues, so that intermolecular interactions can be
         # checked
@@ -1871,8 +1656,7 @@ def check_structure_for_proximal_atoms(structure,
                     # Check the atoms are in the residues
                     assert atom_1 in [atom.get_id() for atom in residue_A], f"Atom {atom_1} not found in residue {residue_A.get_resname()}{residue_A.get_id()[1]}"
                     assert atom_2 in [atom.get_id() for atom in residue_B], f"Atom {atom_2} not found in residue {residue_B.get_resname()}{residue_B.get_id()[1]}"
-                    # Measure the distance between the atoms and document if it
-                    # is short enough
+                    # Measure the distance between the atoms and document if it is
                     distance = residue_A[atom_1] - residue_B[atom_2]
                     if distance < max_distance:
                         output_dict = {"residue number A" : residue_A.id[1],
@@ -1880,126 +1664,10 @@ def check_structure_for_proximal_atoms(structure,
                                         "residue number B" : residue_B.id[1],
                                         "chain B" : residue_B.chain.id,
                                         "distance" : distance}
-                        
-                        if HSE == True:
-                            res_HSE = get_res_HSE_structure(structure,
-                                                            residue_A.chain.id,
-                                                            residue_A.id[1],
-                                                            residue_B.chain.id,
-                                                            residue_B.id[1])
-                            
-                            output_dict["HSE A num1"] = res_HSE[0][0]
-                            output_dict["HSE A num2"] = res_HSE[0][1]
-                            output_dict["HSE B num1"] = res_HSE[1][0]
-                            output_dict["HSE B num2"] = res_HSE[1][1]                            
-
                         output_residues.append(output_dict)
             # Remove residue_A from residues so it wont get tested again
             residues.remove(residue_A)
     return output_residues
-
-def get_res_HSE_structure(structure,
-                            chain1,
-                            resn1,
-                            chain2 = None,
-                            resn2 = None,
-                            alternate = False,
-                            only_chains = False,
-                            fast = True):
-    model = structure
-        
-    # Creating feature that speeds up HSE algorithm by removing
-    # distant CA atoms before calculating.
-    if fast == True:
-        save_atoms = []
-        # Iterate through every atom, adding them to save_atoms
-        # if they are near the relevent one or two.
-        for chain in model:
-            for res in chain:
-                for atom in res:
-                    try:
-                        if atom.id == "CA" and atom - model[chain1][resn1]["CA"] < 13:
-                            save_atoms.append(atom)
-                        # If two residues provided, check the other
-                        # as well
-                        if chain2 != None and resn2 != None:
-                            if atom.id == "CA" and atom - model[chain2][resn2]["CA"] < 13:
-                                save_atoms.append(atom)
-                    except: 
-                        # Failed to find a target residue
-                        print(f"Failed to use fast HSE for.")
-                        # Stop trying to use feature that speeds up HSE
-                        fast = False
-                        break
-        
-        # Iterate through every CA atom, and remove it if it isn't
-        # in save_atoms .
-        if fast == True: # Check that saving proximal CAs worked before removing non-proximal CAs   
-            for chain in model:
-                for res in chain: 
-                    try:
-                        if res["CA"] not in save_atoms:
-                            chain.detach_child(res.id)
-                    except:
-                        pass
-        else:
-            print("Reverting to computing regular HSE.")
-    
-    # If we want to ignore other chains in the structure when
-    # computing HSE
-    if only_chains == True:
-        for a in range(len(model) + 1):
-            for i in model:
-                if i.id not in [chain1, chain2]:
-                    model.detach_child(i.id)
-
-    if alternate == False:
-        print("getting HSE for", chain1, resn1)
-        exp_ca = HSExposureCA(model)
-        try:
-            res_id1 = model[chain1][resn1].get_id()
-        except:
-            pass
-        
-        try:
-            info1 = exp_ca[(model[chain1].get_id(), res_id1)]
-            
-        except:
-            info1 = (np.NaN, np.NaN, 1)
-        if chain2 == False:
-            return info1
-        else:
-            try:
-                res_id2 = model[chain2][resn2].get_id()
-                print("res_id2:", res_id2)
-                info2 = exp_ca[(model[chain2].get_id(),res_id2)]
-            except:
-                info2 = (np.NaN, np.NaN, 1)
-            return [info1, 
-                    info2]
-    else:
-        hse = HSExposure()
-
-def get_res_HSE_file(PDB_file,
-                chain1,
-                resn1,
-                chain2 = None,
-                resn2 = None,
-                alternate = False,
-                only_chains = False,
-                fast = True): #get the half sphere exposure of the CA atom of a residue: https://biopython.org/wiki/The_Biopython_Structural_Bioinformatics_FAQ
-    
-    with gzip.open(PDB_file, "rt") as unzipped:
-        structure = parser.get_structure("struc", unzipped)
-        return get_res_HSE_structure(structure,
-                                chain1,
-                                resn1,
-                                chain2,
-                                resn2,
-                                alternate,
-                                only_chains,
-                                fast)
-        
 
 class Sequence:
     """
@@ -2073,36 +1741,13 @@ class Sequence:
         """
         Transcribe DNA to RNA.
         """
-        if hasattr(self, "sequence_type"):
-            if self.sequence_type == "DNA":
-                self.sequence = self.sequence.replace("T", "U")
-                self.sequence_type = "RNA"
-            else:
-                raise Exception("Sequence is not DNA, so cannot be transcribed.")
-        else:
+        if self.sequence_type == "DNA":
             self.sequence = self.sequence.replace("T", "U")
             self.sequence_type = "RNA"
-
-    def blast(self):
-        assert hasattr(self, "sequence_type"), "Sequence type must be defined for BLAST search."
-        
-        if self.sequence_type == "DNA" or self.sequence_type == "RNA":
-            result_handle = NCBIWWW.qblast("blastn", "nt", self.sequence)
-        elif self.sequence_type == "protein":
-            result_handle = NCBIWWW.qblast("blastp", "nr", self.sequence)
         else:
-            raise Exception("Sequence type must be 'DNA', 'RNA', or 'protein'. Got " + repr(self.sequence_type))
-        return NCBIXML.read(result_handle)
-
+            raise Exception("Sequence is not DNA, so cannot be transcribed.")
+    
     # Future functions:
         # reverse_complement
         # get_structure (alphafold and or PDB)
         # could put all the sequence functions in this class
-
-def get_human_uniprot_list(filepath = None):
-    print("Downloading human uniprot list.")
-    df = pd.read_csv("https://piecole.com/data/uniprot_human.txt", sep = "\t")
-    if filepath != None:
-        assert isinstance(filepath, str), "Expected str for filepath, got " + repr(type(filepath))
-        df.to_csv(filepath, sep = "\t", index = False)
-    return df
