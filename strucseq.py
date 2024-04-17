@@ -1515,7 +1515,11 @@ def PDBsearch(query : str) -> list:
 
     return results
 
-def get_PDB_structure(pdb_id : str, folder : str = "structures", extension = "ent", strict = False, debug = False):
+def get_PDB_structure(pdb_id : str,
+                      folder : str = "structures",
+                      extension = "ent",
+                      strict = False,
+                      debug = False):
     """
     Downloads a structure from the PDB for a given PDB ID.
 
@@ -1939,6 +1943,79 @@ def check_structure_for_proximal_atoms(structure,
             # Remove residue_A from residues so it wont get tested again
             residues.remove(residue_A)
     return output_residues
+
+def is_amino_acid(residue):
+    """
+    Check if a residue is an amino acid.
+    """
+    return residue.get_resname() in threeletter
+
+def extract_interactions(structure,
+                         max_distance : str = 4) -> pd.DataFrame:
+    """
+    Iterate through the chains in a structure and extract regions that
+    interact with ions, ligands, and other chains in the structure.
+
+    Returns
+    -------
+
+    pd.DataFrame
+
+    Examples
+    --------
+
+    >>> structure = sq.parser.get_structure("struc", "structures/3OCP.ent")
+    >>> interactions = sq.extract_interactions(structure)
+
+    """
+    
+    for structure in structure:
+        # Compile all the residues, so that intermolecular interactions can be
+        # checked
+        residues = []
+        for chain in structure:
+            for residue in chain:
+                residue.chain = chain
+                residues.append(residue)
+    
+    # Get chain interactions
+    interactions = []
+    for res1 in residues:
+        for res2 in residues:
+            # Check neither are HOH
+            if res1.get_resname() != "HOH" and res2.get_resname() != "HOH":
+                # Get ligand/ion interactions by checking that
+                # its not an amino acid via the three letter code
+                if is_amino_acid(res1) == True and is_amino_acid(res2) == False:
+                    for atom1 in res1:
+                        for atom2 in res2:
+                            distance = atom1 - atom2
+                            if distance < max_distance:
+                                interactions.append({"Chain" : res1.chain.id,
+                                                        "Residue" : res1.id[1],
+                                                        "Distance" : distance,
+                                                        "Interactor" : f"{res2.get_resname()}"})
+                elif is_amino_acid(res1) == True and is_amino_acid(res2) == True:
+                    # Get interchain interaction if both are 
+                    # amino acids
+                    if res1.chain != res2.chain:
+                        for atom1 in res1:
+                            for atom2 in res2:
+                                distance = atom1 - atom2
+                                if distance < max_distance:
+                                    interactions.append({"Chain" : res1.chain.id,
+                                                            "Residue" : res1.id[1],
+                                                            "Distance" : distance,
+                                                            "Interactor" : f"chain {res2.chain.id}"})
+    # Trim the interactions down to the shortest interactor atom distance
+    df = pd.DataFrame(interactions)
+    df = df.sort_values("Distance")
+    df = df.drop_duplicates(ignore_index=True, subset=["Chain",
+                                                       "Residue",
+                                                       "Interactor"])
+
+    return df
+
 
 def get_res_HSE_structure(structure,
                             chain1,
