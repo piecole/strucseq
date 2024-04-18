@@ -1950,6 +1950,33 @@ def is_amino_acid(residue):
     """
     return residue.get_resname() in threeletter
 
+def combine_range(input : list):
+    """
+    Take in a series of numbers and output a list of lists where
+    adjacent numbers have been combined.
+    """
+    output = []
+    last_number = None
+    
+    # Convert to list and sort input
+    input = list(input)
+    input = sorted(input)
+
+    for i in input:
+        if last_number is not None:
+            if i == last_number + 1:
+                output[-1][-1] = i
+            else:
+                output.append([i,None])
+            last_number = i
+        else:
+            output.append([i,None])
+            last_number = i
+    for i in output:
+        if i[1] is None:
+            i.pop(1)
+    return output
+
 def extract_interactions(structure,
                          max_distance : str = 4) -> pd.DataFrame:
     """
@@ -2007,14 +2034,22 @@ def extract_interactions(structure,
                                                             "Residue" : res1.id[1],
                                                             "Distance" : distance,
                                                             "Interactor" : f"chain {res2.chain.id}"})
+    
     # Trim the interactions down to the shortest interactor atom distance
     df = pd.DataFrame(interactions)
     df = df.sort_values("Distance")
     df = df.drop_duplicates(ignore_index=True, subset=["Chain",
                                                        "Residue",
                                                        "Interactor"])
+    # Compile these into dictionaries with ranges of residues
+    df.sort_values(["Interactor", "Chain", "Distance"])
+    interactions = {}
+    for chain in df["Chain"].unique():
+        interactions[chain] = {}
+        for interactor in df[df["Chain"] == chain]["Interactor"].unique():
+            interactions[chain][interactor] = combine_range(df[(df["Chain"] == chain) & (df["Interactor"] == interactor)]["Residue"].tolist())
 
-    return df
+    return interactions
 
 
 def get_res_HSE_structure(structure,
