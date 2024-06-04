@@ -789,7 +789,28 @@ def iterate_uniprot_details(in_csv : str,
     data.to_csv(out_csv, sep="\t", index = False)
 
 parser = PDBParser()
-def get_flanking_info(PDB_file : str, amino_acid : str, debug : bool = False) -> tuple:
+
+def extract_chain_sequences_from_structure(structure : Structure.Structure):
+    chain_sequences = {}
+    for chain in structure[0]:
+        length = max([i.id[1] for i in chain]) #determine how long the chain actually is, ignoring gaps
+        res_list = ["!" for i in range(length)] #creating reslist by starting with blank ! marks
+        for index, residue in enumerate(chain):
+            residue.newresnum = index
+            
+            #populating res_list, which has gaps
+            resname = residue.get_resname()
+            try: 
+                if resname != "HOH" and residue.id[1] >= 0: #check residue is not water and has a seq number of 0 or more
+                    res_list[residue.id[1] -1] = threetoone[resname] #compile chain sequence
+            except:
+                res_list[residue.id[1] -1] = "!" #otherwise add exclamation marks
+        chain_sequences[chain.id] = "".join(res_list) #join the res_list compiled previously into strings add to a dictionary with the chain letters as keys
+    return chain_sequences
+
+def get_flanking_info(PDB_file : str,
+                      amino_acid : str,
+                      debug : bool = False) -> tuple:
     """
         
     Takes a PDB file and returns flanking information for all the cysteines and also returns the real sequences of each chain.
