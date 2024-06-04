@@ -2012,7 +2012,8 @@ def combine_range(input : list):
     return output
 
 def extract_interactions(structure,
-                         max_distance : str = 4) -> pd.DataFrame:
+                         max_distance : str = 4,
+                         strict = True) -> pd.DataFrame:
     """
     Iterate through the chains in a structure and extract regions that
     interact with ions, ligands, and other chains in the structure.
@@ -2071,6 +2072,11 @@ def extract_interactions(structure,
     
     # Trim the interactions down to the shortest interactor atom distance
     df = pd.DataFrame(interactions)
+    if df.empty:
+        if strict:
+            raise ValueError("No intermolecular interactions found in structure. Use strict = False to return numpy NaN")
+        else:
+            return np.NaN
     df = df.sort_values("Distance")
     df = df.drop_duplicates(ignore_index=True, subset=["Chain",
                                                        "Residue",
