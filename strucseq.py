@@ -15,6 +15,7 @@ import shutil
 import csv
 import re
 import statistics as stats
+import lxml
 
 try:
     import propka.run as pk
@@ -129,7 +130,7 @@ def get_uniprot_accessions(pdbcode : str, strict = True, selenium = False, debug
             try:
                 if debug == True:
                     print(f"Getting PDB XML for {pdbcode}")
-                soup = BeautifulSoup(requests.get("https://files.rcsb.org/view/" + pdbcode + "-noatom.xml").text, "lxml")
+                soup = BeautifulSoup(requests.get("https://files.rcsb.org/view/" + pdbcode + "-noatom.xml").text, features= "lxml")
                 worked = True
             except:
                 fails = fails + 1
@@ -367,6 +368,9 @@ def get_uniprot_details(unicode : str, debug = False) -> dict:
                 print(f"Accessing {url}")
             soup = BeautifulSoup(requests.get(url).text, "lxml")
             break
+        except FeatureNotFound:
+            print("Failed to fetch because lxml not installed, use:")
+            print("pip install lxml")
         except:
             print("Failed to fetch uniprot data, trying again.")
             tries += 1
@@ -693,6 +697,7 @@ def iterate_uniprot_details(in_csv : str,
         'binding sites', 'mammalian', and 'function'.
         
     EDITING TO BE NON SPECIFIC
+    NEED TO TEST AND FIX THIS WITH pd.DataFrame input
 
     """
 
@@ -879,7 +884,12 @@ def get_flanking_info(PDB_file : str, amino_acid : str, debug : bool = False) ->
     #print(chain_sequences)
     return newdata, chain_sequences #output the flanking info as a new dataframe for each cysteine, output the chain sequences as a dicitonary
 
-def get_residues(residue : str, flanknum : int, sequence : str, placeholder : str = "!", frameshift : bool = False, strict = False) -> dict:
+def get_residues(residue : str,
+                 flanknum : int,
+                 sequence : str,
+                 placeholder : str = "!",
+                 frameshift : bool = False,
+                 strict = False) -> dict:
     """
     Takes a sequence. Creates a dictionary with the residue number and flanking residues 
     of an amino acid that can be found in the sequence.
@@ -935,15 +945,17 @@ def get_residues(residue : str, flanknum : int, sequence : str, placeholder : st
     #   Add new potential frameshifted residues        
     if frameshift != False:
         shifted = {}
+        if isinstance(frameshift, int):
+                frameshift += 1
         for res in reslist:    #   For every seq1 residue
         
             #   Set the frameshift level to the flanknum if frameshift not specified
             if isinstance(frameshift, bool):
-                frameshift = flanknum
-            
+                frameshift = flanknum + 1
+
             #   Frameshift every potential residue on the left side
             #   For each number of frameshifts up to the flanknum
-            for shift in range(frameshift):
+            for shift in range(1, frameshift):
                 #   Make a new entry to store the shifted sequence as a list
                 shifted[str(res) + "-" + str(shift)] = list(reslist[res])
                 #   Add an X for every frameshift and remove a residue to compensate
@@ -952,7 +964,7 @@ def get_residues(residue : str, flanknum : int, sequence : str, placeholder : st
                     shifted[str(res) + "-" + str(shift)].pop(0)
                     
             #   Frameshift every potential residue on the right side
-            for shift in range(frameshift):
+            for shift in range(1, frameshift):
                 shifted[str(res) + "+" + str(shift)] = list(reslist[res])
                 for i in range(shift):
                     shifted[str(res) + "+" + str(shift)].insert(flanknum + 1, "X")
@@ -968,7 +980,13 @@ def get_residues(residue : str, flanknum : int, sequence : str, placeholder : st
     return reslist
 
 amino_acid_groups = {False: [], "positive" : ["R", "H", "K"], "negative": ["D", "E"], "polar": ["S", "T", "N", "Q"], "hydrophobic":["A", "V", "I", "L", "M", "F", "W"]}
-def get_equivalentresidue(resnum : int, seq1 : str, seq2 : str, flanknum : int = 5, placeholder : str = "!", pass_nan : bool = True, debug : bool = False) -> list:
+def get_equivalentresidue(resnum : int,
+                          seq1 : str,
+                          seq2 : str,
+                          flanknum : int = 5,
+                          placeholder : str = "!",
+                          pass_nan : bool = True,
+                          debug : bool = False) -> list:
     """
     Takes the specified residue from sequence 1 and uses alignment to get its number 
     in sequence 2.
@@ -1023,7 +1041,12 @@ def get_equivalentresidue(resnum : int, seq1 : str, seq2 : str, flanknum : int =
     #   Extract the flanking sequence in seq1
     failed = False
     try:
-        extract = get_residues(seq1[resnum - 1], flanknum, seq1, placeholder)[resnum]
+        extract = get_residues(seq1[resnum - 1],
+                               flanknum,
+                               seq1,
+                               placeholder)[resnum]
+        if debug == True:
+            print("Extracted flanking sequences:", extract)
     except:
         failed = True
         with open("converting regions errors.csv", "a+") as f:
@@ -1031,7 +1054,11 @@ def get_equivalentresidue(resnum : int, seq1 : str, seq2 : str, flanknum : int =
     
     if failed == False:
         #   Turn seq2 into a dictionary of its relevent residues
-        seq2 = get_residues(seq1[resnum - 1], flanknum, seq2, placeholder, frameshift = 1)
+        seq2 = get_residues(seq1[resnum - 1],
+                            flanknum,
+                            seq2,
+                            placeholder,
+                            frameshift = 1)
         
         highscore = 0
         highscorer = np.NaN
@@ -1046,7 +1073,8 @@ def get_equivalentresidue(resnum : int, seq1 : str, seq2 : str, flanknum : int =
                     score = score + 1
                 elif extract[seq2index] in amino_acid_groups[group]:
                     score = score + 0.5
-                    
+            if debug == True:
+                print("Potential:", potential, "Score:", score)
             if score > highscore:
                 highscorer = potential
                 highscore = score
@@ -1162,9 +1190,12 @@ def convert_region(start_sequence: str, start_region : Union[int, list], end_seq
         raise Exception("""start_region must be number or list of two positive numbers to 
                         specify a sequence region. Got:""" + repr(start_region) + """ for 
                         sequence """ + repr(start_sequence))
-        
+    
     for i in seq_range:
-        residue = get_equivalentresidue(i + 1, start_sequence, end_sequence)
+        residue = get_equivalentresidue(i + 1,
+                                        start_sequence,
+                                        end_sequence,
+                                        debug = debug)
         residue[0] = residue[0]-1
         if residue[1] > 4:
             residue.append(start_sequence[i])
@@ -1175,7 +1206,10 @@ def convert_region(start_sequence: str, start_region : Union[int, list], end_seq
     seq_reversed, new_region_start, new_region_end = reverse_sequence(start_sequence, start_region[0] + 2, start_region[1] + 2)
     reverse_end_sequence = end_sequence[::-1]
     for i in range(new_region_start, new_region_end + 1):
-        rev_residue = get_equivalentresidue(i + 1, seq_reversed, reverse_end_sequence)
+        rev_residue = get_equivalentresidue(i + 1,
+                                            seq_reversed,
+                                            reverse_end_sequence,
+                                            debug = debug)
         if rev_residue[1] > 4:
             rev_residue.append(seq_reversed[i])
             rev_residues.append(rev_residue)
