@@ -1286,11 +1286,13 @@ def convert_regions(regions : dict, seq1 : str, seq2) -> dict:
         sequence.
 
     """
+
     #   Check that none of the inputs are null
     if pd.isnull(regions) or pd.isnull(seq1) or pd.isnull(seq2):
         return np.NaN
     if isinstance(regions, str):
-        regions = ast.literal_eval(regions) # Convert the dictionary string to dict
+        # Convert the dictionary string to dict
+        regions = ast.literal_eval(regions) 
     assert isinstance(seq1, str), "Expected str for seq1, got " + repr(type(seq1))
     
     #   Check if seq2 is a dictionary, in which case interpret it as multiple sequences to 
