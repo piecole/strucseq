@@ -838,8 +838,12 @@ def get_flanking_info(PDB_file : str,
     assert isinstance(debug, bool), "bool expected for debug, found " + repr(type(debug))
     
     cysteine_list = []
-    with gzip.open(PDB_file, "rt") as unzipped: #open the structure
-        structure = parser.get_structure("struc", unzipped) #parse the structure
+    with gzip.open(PDB_file.encode("unicode_escape"), "rt") as unzipped: #open the structure
+        try:
+            structure = parser.get_structure("struc", unzipped) #parse the structure
+        except OSError:
+            raise Exception(f"Failed to parse structure from '{PDB_file}'.")
+        
         chain_sequences = {}
         for chain in structure[0]: #iterate through chains
             realreslist = [] #make a list to store the residues in a chain
