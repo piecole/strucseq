@@ -2118,6 +2118,18 @@ def extract_interactions(structure,
 
     return interactions
 
+def get_structure_sequences(structure):
+    """
+    Takes a structure, returns the sequences of each chain in a dictionary.
+    """
+    sequences = {}
+    for model in structure:
+        for chain in model:
+            sequence = ""
+            for residue in chain:
+                sequence += threetoone[residue.resname]
+            sequences[chain.id] = sequence
+    return sequences
 
 def get_res_HSE_structure(structure,
                             chain1,
