@@ -2127,7 +2127,10 @@ def get_structure_sequences(structure):
         for chain in model:
             sequence = ""
             for residue in chain:
-                sequence += threetoone[residue.resname]
+                if residue.resname in threetoone:
+                    sequence += threetoone[residue.resname]
+                else:
+                    sequence += "!"
             sequences[chain.id] = sequence
     return sequences
 
