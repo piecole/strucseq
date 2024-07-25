@@ -23,8 +23,10 @@ except:
     print("PROPKA not installed, will not be able to determine pka through PROPKA.")
 
 
+pdb_search_enabled = False
 try:
     from rcsbsearchapi.search import TextQuery as PDBquery
+    pdb_search_enabled = True
 except:
     print("rcsbsearchapi not installed, some functions may not work.")
 
@@ -1570,7 +1572,10 @@ def PDBsearch(query : str) -> list:
     assert isinstance(query, str), "Expected str for query, got " + repr(type(query))
     
     # Make the query
-    query = PDBquery(query)
+    if pdb_search_enabled:
+        query = PDBquery(query)
+    else:
+        raise ImportError("PDBsearch() requires the rcsbsearchapi module to be installed.")
     # Execute the query
     results = list(set(query()))
 
@@ -1612,7 +1617,8 @@ def get_PDB_structure(pdb_id : str,
         return
 
     # Get the structure
-    print("Downloading structure for " + pdb_id + " from PDB.")
+    if debug:
+        print("Downloading structure for " + pdb_id + " from PDB.")
 
     url = "https://files.rcsb.org/download/" + pdb_id + ".pdb"
     data = requests.get(url, allow_redirects=True)
