@@ -2141,8 +2141,12 @@ def get_res_HSE_structure(structure,
                             resn2 = None,
                             alternate = False,
                             only_chains = False,
-                            fast = True):
+                            fast = True,
+                            debug = False):
     model = structure
+
+    if isinstance(model, Structure.Structure):
+        model = structure[0]
         
     # Creating feature that speeds up HSE algorithm by removing
     # distant CA atoms before calculating.
@@ -2166,6 +2170,8 @@ def get_res_HSE_structure(structure,
                         #print(f"Failed to use fast HSE.")
                         # Stop trying to use feature that speeds up HSE
                         fast = False
+                        if debug:
+                            print("Failed fast")
                         break
         
         # Iterate through every CA atom, and remove it if it isn't
@@ -2198,16 +2204,18 @@ def get_res_HSE_structure(structure,
             pass
         
         try:
+            print(model[chain1].get_id(), res_id1)
             info1 = exp_ca[(model[chain1].get_id(), res_id1)]
-            
         except:
             info1 = (np.NaN, np.NaN, 1)
-        if chain2 == False:
+            if debug:
+                print("Failed at exp_ca[(model[chain1].get_id(), res_id1)]")
+        if chain2 == None:
             return info1
         else:
             try:
                 res_id2 = model[chain2][resn2].get_id()
-                info2 = exp_ca[(model[chain2].get_id(),res_id2)]
+                info2 = exp_ca[(model[chain2].get_id(), res_id2)]
             except:
                 info2 = (np.NaN, np.NaN, 1)
             return [info1, 
