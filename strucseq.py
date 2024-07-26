@@ -2164,7 +2164,8 @@ def get_res_HSE_structure(structure,
             for res in chain:
                 for atom in res:
                     try:
-                        print("Measuring", atom)
+                        if debug:
+                            print("Measuring", atom)
                         if atom.id == "CA" and atom - model[chain1][resn1]["CA"] < 13:
                             save_atoms.append(atom)
                         # If two residues provided, check the other
