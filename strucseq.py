@@ -2128,6 +2128,7 @@ def get_structure_sequences(structure):
     """
     Takes a structure, returns the sequences of each chain in a dictionary.
     """
+    raise DeprecationWarning("Use extract_chain_sequences_from_structure().")
     sequences = {}
     for model in structure:
         for chain in model:
