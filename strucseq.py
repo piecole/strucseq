@@ -2213,7 +2213,6 @@ def get_res_HSE_structure(structure,
             pass
         
         try:
-            print(model[chain1].get_id(), res_id1)
             info1 = exp_ca[(model[chain1].get_id(), res_id1)]
         except:
             info1 = (np.NaN, np.NaN, 1)
