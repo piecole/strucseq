@@ -369,10 +369,14 @@ def get_uniprot_details(unicode : str, debug = False) -> dict:
             if debug == True:
                 print(f"Accessing {url}")
             soup = BeautifulSoup(requests.get(url).text, "lxml")
+            # If successful break out of while loop
             break
-        except requests.SSLError:
-            print("Failed to fetch uniprot data, trying again.")
+        except (ConnectionResetError,
+                requests.exceptions.ProtocolError,
+                requests.exceptions.ConnectionError,
+                requests.exceptions.SSLError):
             tries += 1
+            print(f"Connection error while fetching uniprot data, waiting {tries**2} seconds before retrying...")
             time.sleep(tries**2)
     else:
         print("Failed to fetch uniprot data repeatedly.")
