@@ -370,10 +370,7 @@ def get_uniprot_details(unicode : str, debug = False) -> dict:
                 print(f"Accessing {url}")
             soup = BeautifulSoup(requests.get(url).text, "lxml")
             break
-        except FeatureNotFound:
-            print("Failed to fetch because lxml not installed, use:")
-            print("pip install lxml")
-        except:
+        except requests.SSLError:
             print("Failed to fetch uniprot data, trying again.")
             tries += 1
             time.sleep(tries**2)
