@@ -802,11 +802,18 @@ def extract_chain_sequences_from_structure(structure : Structure.Structure):
             
             #populating res_list, which has gaps
             resname = residue.get_resname()
-            try: 
+            try: # What are you catching here? That the residue exists
                 if resname != "HOH" and residue.id[1] >= 0: #check residue is not water and has a seq number of 0 or more
                     res_list[residue.id[1] -1] = threetoone[resname] #compile chain sequence
-            except:
-                res_list[residue.id[1] -1] = "!" #otherwise add exclamation marks
+            except KeyError:
+                try:
+                    res_list[residue.id[1] -1] = "!" #otherwise add exclamation marks
+                except KeyError as e:
+                    print("res_list", res_list)
+                    print("residue", residue)
+                    raise e
+            except IndexError as e:
+                print("res_list:", res_list, "residue:", residue, "resname:", resname)
         chain_sequences[chain.id] = "".join(res_list) #join the res_list compiled previously into strings add to a dictionary with the chain letters as keys
     return chain_sequences
 
