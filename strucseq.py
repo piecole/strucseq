@@ -1898,7 +1898,8 @@ def check_structure_for_proximal_atoms(structure,
                                        atom_2 = "CA",
                                        max_distance = 10,
                                        HSE = False,
-                                       b_factor = None):
+                                       b_factor = None,
+                                       strict = True):
     """
     Open a protein structure (or structure) and search for two
     residues that are within a specified distance of each other. Returning a list of
@@ -1922,6 +1923,9 @@ def check_structure_for_proximal_atoms(structure,
         Whether to calculate HSE. Default is False.
     b_factor : string, optional
         Whether to save b-factors. Options are "one", "two". Default is None.
+    strict : bool, optional
+        Whether to raise an exception if the atoms are not found in
+        the intended residues. Default is True.
 
     Returns
     -------
@@ -1982,39 +1986,44 @@ def check_structure_for_proximal_atoms(structure,
             for residue_B in residues:
                 # Check the residues are different
                 if residue_A != residue_B:
-                    # Check the atoms are in the residues
-                    assert atom_1 in [atom.get_id() for atom in residue_A], f"Atom {atom_1} not found in residue {residue_A.get_resname()}{residue_A.get_id()[1]}"
-                    assert atom_2 in [atom.get_id() for atom in residue_B], f"Atom {atom_2} not found in residue {residue_B.get_resname()}{residue_B.get_id()[1]}"
-                    # Measure the distance between the atoms and document if it
-                    # is short enough
-                    distance = residue_A[atom_1] - residue_B[atom_2]
-                    if distance < max_distance:
-                        output_dict = {"residue number A" : residue_A.id[1],
-                                       "chain A" : residue_A.chain.id,
-                                        "residue number B" : residue_B.id[1],
-                                        "chain B" : residue_B.chain.id,
-                                        "distance" : distance}
-                        
-                        if HSE == True:
-                            res_HSE = get_res_HSE_structure(structure,
-                                                            residue_A.chain.id,
-                                                            residue_A.id[1],
-                                                            residue_B.chain.id,
-                                                            residue_B.id[1])
+                    # Assert the atoms are in the residues
+                    if strict is True:
+                        assert atom_1 in [atom.get_id() for atom in residue_A], f"Atom {atom_1} not found in residue {residue_A.get_resname()}{residue_A.get_id()[1]}"
+                        assert atom_2 in [atom.get_id() for atom in residue_B], f"Atom {atom_2} not found in residue {residue_B.get_resname()}{residue_B.get_id()[1]}"
+                    
+                    if atom_1 in [atom.get_id() for atom in residue_A] \
+                        and atom_2 in [atom.get_id() for atom in residue_B]:
+                        # Measure the distance between the atoms and document if it
+                        # is short enough
+                        distance = residue_A[atom_1] - residue_B[atom_2]
+                        if distance < max_distance:
+                            output_dict = {"residue number A" : residue_A.id[1],
+                                            "chain A" : residue_A.chain.id,
+                                            "residue number B" : residue_B.id[1],
+                                            "chain B" : residue_B.chain.id,
+                                            "distance" : distance}
                             
-                            output_dict["HSE A num1"] = res_HSE[0][0]
-                            output_dict["HSE A num2"] = res_HSE[0][1]
-                            output_dict["HSE B num1"] = res_HSE[1][0]
-                            output_dict["HSE B num2"] = res_HSE[1][1]
+                            if HSE is True:
+                                res_HSE = get_res_HSE_structure(structure,
+                                                                residue_A.chain.id,
+                                                                residue_A.id[1],
+                                                                residue_B.chain.id,
+                                                                residue_B.id[1])
+                                
+                                output_dict["HSE A num1"] = res_HSE[0][0]
+                                output_dict["HSE A num2"] = res_HSE[0][1]
+                                output_dict["HSE B num1"] = res_HSE[1][0]
+                                output_dict["HSE B num2"] = res_HSE[1][1]
 
-                        if b_factor is not None:
-                            if b_factor == "one":
-                                output_dict["b factors"] = residue_A.b_factor
-                            if b_factor == "two":
-                                output_dict["b factors A"] = residue_A.b_factor
-                                output_dict["b factors B"] = residue_B.b_factor              
+                            if b_factor is not None:
+                                if b_factor == "one":
+                                    output_dict["b factors"] = residue_A.b_factor
+                                if b_factor == "two":
+                                    output_dict["b factors A"] = residue_A.b_factor
+                                    output_dict["b factors B"] = residue_B.b_factor              
 
-                        output_residues.append(output_dict)
+                            output_residues.append(output_dict)
+                        
             # Remove residue_A from residues so it wont get tested again
             residues.remove(residue_A)
     return output_residues
