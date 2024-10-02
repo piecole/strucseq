@@ -123,13 +123,12 @@ def get_uniprot_accessions(pdbcode : str, strict = True, selenium = False, debug
         assert len(pdbcode) == 4, f"Expected 4 letter string for pdbcode, got: '{pdbcode}'."
     
     #   Fetch the xml version of the uniprot site in beautifulsoup
-    failed = False
-    if selenium == False:
+    if selenium is False:
         fails = 0
         worked = False
-        while worked == False:
+        while worked is False:
             try:
-                if debug == True:
+                if debug:
                     print(f"Getting PDB XML for {pdbcode}")
                 soup = BeautifulSoup(requests.get("https://files.rcsb.org/view/" + pdbcode + "-noatom.xml").text, features= "lxml")
                 worked = True
@@ -138,7 +137,6 @@ def get_uniprot_accessions(pdbcode : str, strict = True, selenium = False, debug
                 time.sleep(fails**2)
         
         entries = {} #  Create a dictionary to store each entry
-        failed = False
         try:
             for entry in soup.find("pdbx:struct_ref_seqcategory").find_all("pdbx:struct_ref_seq"): #find each chain entry
                 try:
@@ -146,17 +144,15 @@ def get_uniprot_accessions(pdbcode : str, strict = True, selenium = False, debug
                     if len(info) > 4:
                         entries[entry.find("pdbx:pdbx_strand_id").text] = info #extract each one as a uniprot code assigend with a chain letter
                 except:
-                    if debug == True:
+                    if debug is True:
                         print("no uniprot accession found")
         except:
-            if debug == True:
+            if debug:
                 print("no accession section found for ", pdbcode)
-            failed = True
             
             for entry in entries:
                 if len(entries[entry]) > 6: #   Check if entry is wrong length, then what?
-                    failed = True
-                    if debug == True:
+                    if debug is True:
                         print("Bad uniprots for " + pdbcode)
                     break
             
@@ -190,12 +186,12 @@ def iterate_uniprot_accessions_OLD(in_csv : str, chain_cols : list, out_csv : st
     try:
         previous_file = pd.read_csv(out_csv, delimiter = delimiter)
         fetched_chains = list(previous_file["PDB"].drop_duplicates())
-        if debug == True:
+        if debug:
             print("already got:", fetched_chains)
     except:
         previous_file = pd.DataFrame()
         fetched_chains = []
-        if debug == True:
+        if debug:
             print("starting new PDB list")
     
     apd = data[["PDBid", "a chain"]].rename(columns = {"a chain" : "chain"})
@@ -219,12 +215,12 @@ def iterate_uniprot_accessions_OLD(in_csv : str, chain_cols : list, out_csv : st
                 chaindetails = get_uniprot_accessions(PDBcode) #this is because sometimes no details are returned when there should be some, probably due to anti-scraping measures
                 tries = tries + 1
             
-            if debug == True:
+            if debug:
                 if tries == 3:
                     print("no accessions found")
                 if 1 < tries < 3:
                     print("found accessions in", str(tries), "tries.")
-            if debug == True:
+            if debug:
                 print(chaindetails)
             
             for letter in chaindetails: #   Iterate each letter in the dictionary
@@ -237,7 +233,7 @@ def iterate_uniprot_accessions_OLD(in_csv : str, chain_cols : list, out_csv : st
     try:
         uniprotpd.to_csv(out_csv, sep=delimiter, index = False)
     except:
-        if debug == True:
+        if debug:
             print("Failed save, using utf-8 instead.")
         uniprotpd.to_csv(out_csv, sep=delimiter, encoding='utf-8', index = False)
 
@@ -268,16 +264,15 @@ def iterate_uniprot_accessions(in_csv : str, chain_cols, out_csv : str, delimite
     try:
         previous_file = pd.read_csv(out_csv, delimiter = delimiter)
         fetched_chains = list(previous_file["PDB"].drop_duplicates())
-        if debug == True:
+        if debug:
             print("already got:", fetched_chains)
     except:
         previous_file = pd.DataFrame()
         fetched_chains = []
-        if debug == True:
+        if debug:
             print("starting new PDB list")
             
     #   Make separate dataframes for each of the chain cols and then combine them
-    chain_dfs = []
     uniquechains = pd.DataFrame()
     
     #   Parse chain_cols into a list if it is a string
@@ -293,7 +288,6 @@ def iterate_uniprot_accessions(in_csv : str, chain_cols, out_csv : str, delimite
     uniquePDBs = uniquechains["PDBid"].drop_duplicates().reset_index(drop = True)
     
     uniprotpd = pd.DataFrame({"PDB" : [], "chain": [], "uniprot": []})
-    i = 0
     e = 0
     
     pbar = tqdm(np.setdiff1d(list(uniquePDBs), fetched_chains))
@@ -306,12 +300,12 @@ def iterate_uniprot_accessions(in_csv : str, chain_cols, out_csv : str, delimite
             chaindetails = get_uniprot_accessions(PDBcode) #this is because sometimes no details are returned when there should be some, probably due to anti-scraping measures
             tries = tries + 1
         
-        if debug == True:
+        if debug:
             if tries == 3:
                 print("no accessions found")
             if 1 < tries < 3:
                 print("found accessions in", str(tries), "tries.")
-        if debug == True:
+        if debug:
             print(chaindetails)
         
         for letter in chaindetails: #   Iterate each letter in the dictionary
@@ -324,7 +318,7 @@ def iterate_uniprot_accessions(in_csv : str, chain_cols, out_csv : str, delimite
     try:
         uniprotpd.to_csv(out_csv, sep=delimiter, index = False)
     except:
-        if debug == True:
+        if debug:
             print("Failed save, using utf-8 instead.")
         uniprotpd.to_csv(out_csv, sep=delimiter, encoding='utf-8', index = False)
         
@@ -351,13 +345,13 @@ def get_uniprot_details(unicode : str, debug = False) -> dict:
     
     try:
         url = "https://www.uniprot.org/uniprot/" + unicode + ".xml"
-        if debug == True:
+        if debug:
             print("downloading", url)
     except:
         raise Exception("Give a uniprot accession code, recieved " + repr(unicode))
 
     output = {}
-    if debug == True:
+    if debug:
         print(f"Extracting Uniprot information from code: {unicode}.")
   
     #   Fetch the xml version of the uniprot site in beautifulsoup
@@ -365,7 +359,7 @@ def get_uniprot_details(unicode : str, debug = False) -> dict:
     tries = 0
     while tries < 10:
         try:
-            if debug == True:
+            if debug:
                 print(f"Accessing {url}")
             soup = BeautifulSoup(requests.get(url).text, "lxml")
             # If successful break out of while loop
@@ -385,13 +379,13 @@ def get_uniprot_details(unicode : str, debug = False) -> dict:
     #   Get the protein name.
     try:
         output["uniprot name"] = soup.find_all("fullname")[0].text
-    except:
+    except IndexError:
         output["uniprot name"] = np.NaN
     
     #   Get the uniprot abbreviation.
     try:
         output["uniprot abbreviation"] = soup.find_all("name")[0].text
-    except:
+    except IndexError:
         output["uniprot abbreviation"] = np.NaN
     
     try:
@@ -415,7 +409,7 @@ def get_uniprot_details(unicode : str, debug = False) -> dict:
     for variant in soup.find_all("feature", {"type":"sequence variant"}):
         try:
             variant["description"] # Check the variant has a description
-        except:
+        except KeyError:
             variant["description"] = "none"
         try: #  Check whether deletions
             variant.find("original").text
@@ -470,7 +464,7 @@ def get_uniprot_details(unicode : str, debug = False) -> dict:
             #   Multiple residue
             for location in ["begin", "end"]:
                 try: #  Test if the begining and end have positions
-                    test = region.find(location)["position"]
+                    _ = region.find(location)["position"]
                 except: #   Otherwise assign a new position from the status (likely "unknown")
                     region.find(location)["position"] = region.find(location)["status"]
             regions[len(regions),region["description"]] = {"begin" : region.find("location").find("begin")["position"], "end" : region.find("location").find("end")["position"]}
@@ -528,7 +522,7 @@ def get_uniprot_details(unicode : str, debug = False) -> dict:
     #   Strip out only the processes
     output["function"] = [x.split(":")[1] for x in processes if "P:" in x]
      
-    if debug == True:
+    if debug:
         for i in output:
             print(i, output[i])
     return output
