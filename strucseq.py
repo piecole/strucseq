@@ -15,11 +15,10 @@ import shutil
 import csv
 import re
 import statistics as stats
-import lxml
 
 try:
     import propka.run as pk
-except:
+except ModuleNotFoundError:
     print("PROPKA not installed, will not be able to determine pka through PROPKA.")
 
 
@@ -27,13 +26,13 @@ pdb_search_enabled = False
 try:
     from rcsbsearchapi.search import TextQuery as PDBquery
     pdb_search_enabled = True
-except:
+except ModuleNotFoundError:
     print("rcsbsearchapi not installed, some functions may not work.")
 
 try:
     from tqdm import tqdm
     tqdm.pandas()
-except:
+except ModuleNotFoundError:
     def tqdm(iterator, *args, **kwargs):
         return iterator
     print("tqdm not installed, progress bars will not work.")
@@ -119,8 +118,8 @@ def get_uniprot_accessions(pdbcode : str, strict = True, selenium = False, debug
     """
     
     #   Catch incorrect inputs as long as strict is True
-    if strict == True:
-        assert isinstance(pdbcode, str) == True, "Expected 4 letter string for pdbcode, got type: " + type(pdbcode).__name__ + "."
+    if strict is True:
+        assert isinstance(pdbcode, str) is True, "Expected 4 letter string for pdbcode, got type: " + type(pdbcode).__name__ + "."
         assert len(pdbcode) == 4, f"Expected 4 letter string for pdbcode, got: '{pdbcode}'."
     
     #   Fetch the xml version of the uniprot site in beautifulsoup
