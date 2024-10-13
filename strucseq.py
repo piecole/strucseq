@@ -15,11 +15,10 @@ import shutil
 import csv
 import re
 import statistics as stats
-import lxml
 
 try:
     import propka.run as pk
-except:
+except ModuleNotFoundError:
     print("PROPKA not installed, will not be able to determine pka through PROPKA.")
 
 
@@ -27,13 +26,13 @@ pdb_search_enabled = False
 try:
     from rcsbsearchapi.search import TextQuery as PDBquery
     pdb_search_enabled = True
-except:
+except ModuleNotFoundError:
     print("rcsbsearchapi not installed, some functions may not work.")
 
 try:
     from tqdm import tqdm
     tqdm.pandas()
-except:
+except ModuleNotFoundError:
     def tqdm(iterator, *args, **kwargs):
         return iterator
     print("tqdm not installed, progress bars will not work.")
@@ -119,18 +118,17 @@ def get_uniprot_accessions(pdbcode : str, strict = True, selenium = False, debug
     """
     
     #   Catch incorrect inputs as long as strict is True
-    if strict == True:
-        assert isinstance(pdbcode, str) == True, "Expected 4 letter string for pdbcode, got type: " + type(pdbcode).__name__ + "."
+    if strict is True:
+        assert isinstance(pdbcode, str) is True, "Expected 4 letter string for pdbcode, got type: " + type(pdbcode).__name__ + "."
         assert len(pdbcode) == 4, f"Expected 4 letter string for pdbcode, got: '{pdbcode}'."
     
     #   Fetch the xml version of the uniprot site in beautifulsoup
-    failed = False
-    if selenium == False:
+    if selenium is False:
         fails = 0
         worked = False
-        while worked == False:
+        while worked is False:
             try:
-                if debug == True:
+                if debug:
                     print(f"Getting PDB XML for {pdbcode}")
                 soup = BeautifulSoup(requests.get("https://files.rcsb.org/view/" + pdbcode + "-noatom.xml").text, features= "lxml")
                 worked = True
@@ -139,7 +137,6 @@ def get_uniprot_accessions(pdbcode : str, strict = True, selenium = False, debug
                 time.sleep(fails**2)
         
         entries = {} #  Create a dictionary to store each entry
-        failed = False
         try:
             for entry in soup.find("pdbx:struct_ref_seqcategory").find_all("pdbx:struct_ref_seq"): #find each chain entry
                 try:
@@ -147,17 +144,15 @@ def get_uniprot_accessions(pdbcode : str, strict = True, selenium = False, debug
                     if len(info) > 4:
                         entries[entry.find("pdbx:pdbx_strand_id").text] = info #extract each one as a uniprot code assigend with a chain letter
                 except:
-                    if debug == True:
+                    if debug is True:
                         print("no uniprot accession found")
         except:
-            if debug == True:
+            if debug:
                 print("no accession section found for ", pdbcode)
-            failed = True
             
             for entry in entries:
                 if len(entries[entry]) > 6: #   Check if entry is wrong length, then what?
-                    failed = True
-                    if debug == True:
+                    if debug is True:
                         print("Bad uniprots for " + pdbcode)
                     break
             
@@ -191,12 +186,12 @@ def iterate_uniprot_accessions_OLD(in_csv : str, chain_cols : list, out_csv : st
     try:
         previous_file = pd.read_csv(out_csv, delimiter = delimiter)
         fetched_chains = list(previous_file["PDB"].drop_duplicates())
-        if debug == True:
+        if debug:
             print("already got:", fetched_chains)
     except:
         previous_file = pd.DataFrame()
         fetched_chains = []
-        if debug == True:
+        if debug:
             print("starting new PDB list")
     
     apd = data[["PDBid", "a chain"]].rename(columns = {"a chain" : "chain"})
@@ -220,12 +215,12 @@ def iterate_uniprot_accessions_OLD(in_csv : str, chain_cols : list, out_csv : st
                 chaindetails = get_uniprot_accessions(PDBcode) #this is because sometimes no details are returned when there should be some, probably due to anti-scraping measures
                 tries = tries + 1
             
-            if debug == True:
+            if debug:
                 if tries == 3:
                     print("no accessions found")
                 if 1 < tries < 3:
                     print("found accessions in", str(tries), "tries.")
-            if debug == True:
+            if debug:
                 print(chaindetails)
             
             for letter in chaindetails: #   Iterate each letter in the dictionary
@@ -238,7 +233,7 @@ def iterate_uniprot_accessions_OLD(in_csv : str, chain_cols : list, out_csv : st
     try:
         uniprotpd.to_csv(out_csv, sep=delimiter, index = False)
     except:
-        if debug == True:
+        if debug:
             print("Failed save, using utf-8 instead.")
         uniprotpd.to_csv(out_csv, sep=delimiter, encoding='utf-8', index = False)
 
@@ -269,16 +264,15 @@ def iterate_uniprot_accessions(in_csv : str, chain_cols, out_csv : str, delimite
     try:
         previous_file = pd.read_csv(out_csv, delimiter = delimiter)
         fetched_chains = list(previous_file["PDB"].drop_duplicates())
-        if debug == True:
+        if debug:
             print("already got:", fetched_chains)
     except:
         previous_file = pd.DataFrame()
         fetched_chains = []
-        if debug == True:
+        if debug:
             print("starting new PDB list")
             
     #   Make separate dataframes for each of the chain cols and then combine them
-    chain_dfs = []
     uniquechains = pd.DataFrame()
     
     #   Parse chain_cols into a list if it is a string
@@ -294,7 +288,6 @@ def iterate_uniprot_accessions(in_csv : str, chain_cols, out_csv : str, delimite
     uniquePDBs = uniquechains["PDBid"].drop_duplicates().reset_index(drop = True)
     
     uniprotpd = pd.DataFrame({"PDB" : [], "chain": [], "uniprot": []})
-    i = 0
     e = 0
     
     pbar = tqdm(np.setdiff1d(list(uniquePDBs), fetched_chains))
@@ -307,12 +300,12 @@ def iterate_uniprot_accessions(in_csv : str, chain_cols, out_csv : str, delimite
             chaindetails = get_uniprot_accessions(PDBcode) #this is because sometimes no details are returned when there should be some, probably due to anti-scraping measures
             tries = tries + 1
         
-        if debug == True:
+        if debug:
             if tries == 3:
                 print("no accessions found")
             if 1 < tries < 3:
                 print("found accessions in", str(tries), "tries.")
-        if debug == True:
+        if debug:
             print(chaindetails)
         
         for letter in chaindetails: #   Iterate each letter in the dictionary
@@ -325,7 +318,7 @@ def iterate_uniprot_accessions(in_csv : str, chain_cols, out_csv : str, delimite
     try:
         uniprotpd.to_csv(out_csv, sep=delimiter, index = False)
     except:
-        if debug == True:
+        if debug:
             print("Failed save, using utf-8 instead.")
         uniprotpd.to_csv(out_csv, sep=delimiter, encoding='utf-8', index = False)
         
@@ -352,13 +345,13 @@ def get_uniprot_details(unicode : str, debug = False) -> dict:
     
     try:
         url = "https://www.uniprot.org/uniprot/" + unicode + ".xml"
-        if debug == True:
+        if debug:
             print("downloading", url)
     except:
         raise Exception("Give a uniprot accession code, recieved " + repr(unicode))
 
     output = {}
-    if debug == True:
+    if debug:
         print(f"Extracting Uniprot information from code: {unicode}.")
   
     #   Fetch the xml version of the uniprot site in beautifulsoup
@@ -366,13 +359,17 @@ def get_uniprot_details(unicode : str, debug = False) -> dict:
     tries = 0
     while tries < 10:
         try:
-            if debug == True:
+            if debug:
                 print(f"Accessing {url}")
             soup = BeautifulSoup(requests.get(url).text, "lxml")
+            # If successful break out of while loop
             break
-        except requests.SSLError:
-            print("Failed to fetch uniprot data, trying again.")
+        except (ConnectionResetError,
+                requests.exceptions.ProtocolError,
+                requests.exceptions.ConnectionError,
+                requests.exceptions.SSLError):
             tries += 1
+            print(f"Connection error while fetching uniprot data, waiting {tries**2} seconds before retrying...")
             time.sleep(tries**2)
     else:
         print("Failed to fetch uniprot data repeatedly.")
@@ -382,13 +379,13 @@ def get_uniprot_details(unicode : str, debug = False) -> dict:
     #   Get the protein name.
     try:
         output["uniprot name"] = soup.find_all("fullname")[0].text
-    except:
+    except IndexError:
         output["uniprot name"] = np.NaN
     
     #   Get the uniprot abbreviation.
     try:
         output["uniprot abbreviation"] = soup.find_all("name")[0].text
-    except:
+    except IndexError:
         output["uniprot abbreviation"] = np.NaN
     
     try:
@@ -412,7 +409,7 @@ def get_uniprot_details(unicode : str, debug = False) -> dict:
     for variant in soup.find_all("feature", {"type":"sequence variant"}):
         try:
             variant["description"] # Check the variant has a description
-        except:
+        except KeyError:
             variant["description"] = "none"
         try: #  Check whether deletions
             variant.find("original").text
@@ -467,7 +464,7 @@ def get_uniprot_details(unicode : str, debug = False) -> dict:
             #   Multiple residue
             for location in ["begin", "end"]:
                 try: #  Test if the begining and end have positions
-                    test = region.find(location)["position"]
+                    _ = region.find(location)["position"]
                 except: #   Otherwise assign a new position from the status (likely "unknown")
                     region.find(location)["position"] = region.find(location)["status"]
             regions[len(regions),region["description"]] = {"begin" : region.find("location").find("begin")["position"], "end" : region.find("location").find("end")["position"]}
@@ -525,7 +522,7 @@ def get_uniprot_details(unicode : str, debug = False) -> dict:
     #   Strip out only the processes
     output["function"] = [x.split(":")[1] for x in processes if "P:" in x]
      
-    if debug == True:
+    if debug:
         for i in output:
             print(i, output[i])
     return output
@@ -1896,7 +1893,8 @@ def check_structure_for_proximal_atoms(structure,
                                        atom_2 = "CA",
                                        max_distance = 10,
                                        HSE = False,
-                                       b_factor = None):
+                                       b_factor = None,
+                                       strict = True):
     """
     Open a protein structure (or structure) and search for two
     residues that are within a specified distance of each other. Returning a list of
@@ -1920,6 +1918,9 @@ def check_structure_for_proximal_atoms(structure,
         Whether to calculate HSE. Default is False.
     b_factor : string, optional
         Whether to save b-factors. Options are "one", "two". Default is None.
+    strict : bool, optional
+        Whether to raise an exception if the atoms are not found in
+        the intended residues. Default is True.
 
     Returns
     -------
@@ -1980,39 +1981,44 @@ def check_structure_for_proximal_atoms(structure,
             for residue_B in residues:
                 # Check the residues are different
                 if residue_A != residue_B:
-                    # Check the atoms are in the residues
-                    assert atom_1 in [atom.get_id() for atom in residue_A], f"Atom {atom_1} not found in residue {residue_A.get_resname()}{residue_A.get_id()[1]}"
-                    assert atom_2 in [atom.get_id() for atom in residue_B], f"Atom {atom_2} not found in residue {residue_B.get_resname()}{residue_B.get_id()[1]}"
-                    # Measure the distance between the atoms and document if it
-                    # is short enough
-                    distance = residue_A[atom_1] - residue_B[atom_2]
-                    if distance < max_distance:
-                        output_dict = {"residue number A" : residue_A.id[1],
-                                       "chain A" : residue_A.chain.id,
-                                        "residue number B" : residue_B.id[1],
-                                        "chain B" : residue_B.chain.id,
-                                        "distance" : distance}
-                        
-                        if HSE == True:
-                            res_HSE = get_res_HSE_structure(structure,
-                                                            residue_A.chain.id,
-                                                            residue_A.id[1],
-                                                            residue_B.chain.id,
-                                                            residue_B.id[1])
+                    # Assert the atoms are in the residues
+                    if strict is True:
+                        assert atom_1 in [atom.get_id() for atom in residue_A], f"Atom {atom_1} not found in residue {residue_A.get_resname()}{residue_A.get_id()[1]}"
+                        assert atom_2 in [atom.get_id() for atom in residue_B], f"Atom {atom_2} not found in residue {residue_B.get_resname()}{residue_B.get_id()[1]}"
+                    
+                    if atom_1 in [atom.get_id() for atom in residue_A] \
+                        and atom_2 in [atom.get_id() for atom in residue_B]:
+                        # Measure the distance between the atoms and document if it
+                        # is short enough
+                        distance = residue_A[atom_1] - residue_B[atom_2]
+                        if distance < max_distance:
+                            output_dict = {"residue number A" : residue_A.id[1],
+                                            "chain A" : residue_A.chain.id,
+                                            "residue number B" : residue_B.id[1],
+                                            "chain B" : residue_B.chain.id,
+                                            "distance" : distance}
                             
-                            output_dict["HSE A num1"] = res_HSE[0][0]
-                            output_dict["HSE A num2"] = res_HSE[0][1]
-                            output_dict["HSE B num1"] = res_HSE[1][0]
-                            output_dict["HSE B num2"] = res_HSE[1][1]
+                            if HSE is True:
+                                res_HSE = get_res_HSE_structure(structure,
+                                                                residue_A.chain.id,
+                                                                residue_A.id[1],
+                                                                residue_B.chain.id,
+                                                                residue_B.id[1])
+                                
+                                output_dict["HSE A num1"] = res_HSE[0][0]
+                                output_dict["HSE A num2"] = res_HSE[0][1]
+                                output_dict["HSE B num1"] = res_HSE[1][0]
+                                output_dict["HSE B num2"] = res_HSE[1][1]
 
-                        if b_factor is not None:
-                            if b_factor == "one":
-                                output_dict["b factors"] = residue_A.b_factor
-                            if b_factor == "two":
-                                output_dict["b factors A"] = residue_A.b_factor
-                                output_dict["b factors B"] = residue_B.b_factor              
+                            if b_factor is not None:
+                                if b_factor == "one":
+                                    output_dict["b factors"] = residue_A.b_factor
+                                if b_factor == "two":
+                                    output_dict["b factors A"] = residue_A.b_factor
+                                    output_dict["b factors B"] = residue_B.b_factor              
 
-                        output_residues.append(output_dict)
+                            output_residues.append(output_dict)
+                        
             # Remove residue_A from residues so it wont get tested again
             residues.remove(residue_A)
     return output_residues
