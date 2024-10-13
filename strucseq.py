@@ -2071,6 +2071,7 @@ def extract_interactions(structure,
     Examples
     --------
 
+    >>> from strucseq import strucseq as sq
     >>> structure = sq.parser.get_structure("struc", "structures/3OCP.ent")
     >>> interactions = sq.extract_interactions(structure)
 
@@ -2093,7 +2094,7 @@ def extract_interactions(structure,
             if res1.get_resname() != "HOH" and res2.get_resname() != "HOH":
                 # Get ligand/ion interactions by checking that
                 # its not an amino acid via the three letter code
-                if is_amino_acid(res1) == True and is_amino_acid(res2) == False:
+                if is_amino_acid(res1) is True and is_amino_acid(res2) is False:
                     for atom1 in res1:
                         for atom2 in res2:
                             distance = atom1 - atom2
@@ -2102,7 +2103,7 @@ def extract_interactions(structure,
                                                         "Residue" : res1.id[1],
                                                         "Distance" : distance,
                                                         "Interactor" : f"{res2.get_resname()}"})
-                elif is_amino_acid(res1) == True and is_amino_acid(res2) == True:
+                elif is_amino_acid(res1) is True and is_amino_acid(res2) is True:
                     # Get interchain interaction if both are 
                     # amino acids
                     if res1.chain != res2.chain:
@@ -2347,7 +2348,7 @@ class Sequence:
         """
         Search for a sequence within the sequence.
         """
-        if region == None:
+        if region is None:
             region = [1, len(self.sequence)]
 
         if isinstance(search_sequence, Sequence):
