@@ -2057,16 +2057,33 @@ def combine_range(input : list):
     return output
 
 def extract_interactions(structure,
-                         max_distance : str = 4,
-                         strict = True) -> pd.DataFrame:
+                         max_distance : int = 4,
+                         strict : bool = True,
+                         max_residues : int = None,
+                         debug = False) -> pd.DataFrame:
     """
     Iterate through the chains in a structure and extract regions that
     interact with ions, ligands, and other chains in the structure.
 
+    Parameters
+    ----------
+    structure : Bio.PDB.Structure
+        Structure to extract interactions from.
+    max_distance : int, optional
+        Maximum distance for an interaction to be considered. The default is 4.
+    strict : bool, optional
+        Whether to raise an exception if no interactions are found. If False then
+        if no interactions are found will return an empy dictionary. The default is True.
+    max_residues : int, optional
+        Maximum number of residues to check. If there are more residues than this in the 
+        structure then will return an empty dictionary. This is useful for ignoring large
+        structures that will slow down a screen. The default is None.
+
+
     Returns
     -------
 
-    pd.DataFrame
+    dict
 
     Examples
     --------
@@ -2077,44 +2094,62 @@ def extract_interactions(structure,
 
     """
     
-    for structure in structure:
+    
+    residues = []
+    for model in structure:
         # Compile all the residues, so that intermolecular interactions can be
         # checked
-        residues = []
-        for chain in structure:
+        for chain in model:
             for residue in chain:
-                residue.chain = chain
+                residue.chain = str(chain.id)
+                residue.state = str(model)
                 residues.append(residue)
+
+    if max_residues and len(residues) > max_residues:
+        return {}
+
+    if debug:
+        print(f"{len(residues)} residues found in structure.")
     
     # Get chain interactions
     interactions = []
+    # NEED TO SPEED THIS UP:
+    # If only one molecule, just measure distannce to non-amino acids.
+    # If multi-chain and no non-amino acids, only measure between chains.
+    # OR if chain is the same, only measure distance if between an amino acid
+    # and a non-amino. (think we already do that)
+    # Don't try res1 - res2 and res2 - res1, just do one.
+    done_residues = []
     for res1 in residues:
+        done_residues.append(res1)
         for res2 in residues:
-            # Check neither are HOH
-            if res1.get_resname() != "HOH" and res2.get_resname() != "HOH":
-                # Get ligand/ion interactions by checking that
-                # its not an amino acid via the three letter code
-                if is_amino_acid(res1) is True and is_amino_acid(res2) is False:
-                    for atom1 in res1:
-                        for atom2 in res2:
-                            distance = atom1 - atom2
-                            if distance < max_distance:
-                                interactions.append({"Chain" : res1.chain.id,
-                                                        "Residue" : res1.id[1],
-                                                        "Distance" : distance,
-                                                        "Interactor" : f"{res2.get_resname()}"})
-                elif is_amino_acid(res1) is True and is_amino_acid(res2) is True:
-                    # Get interchain interaction if both are 
-                    # amino acids
-                    if res1.chain != res2.chain:
+            if res2 not in done_residues:
+                # Check neither are HOH
+                if "HOH" not in [res1.get_resname(), res2.get_resname()] \
+                    and res1.state == res2.state:
+                    # Get ligand/ion interactions by checking that
+                    # its not an amino acid via the three letter code
+                    if is_amino_acid(res1) is True and is_amino_acid(res2) is False:
                         for atom1 in res1:
                             for atom2 in res2:
                                 distance = atom1 - atom2
                                 if distance < max_distance:
-                                    interactions.append({"Chain" : res1.chain.id,
+                                    interactions.append({"Chain" : res1.chain,
+                                                        "Residue" : res1.id[1],
+                                                        "Distance" : distance,
+                                                        "Interactor" : f"{res2.get_resname()}"})
+                    elif is_amino_acid(res1) is True and is_amino_acid(res2) is True:
+                        # Get interchain interaction if both are 
+                        # amino acids
+                        if res1.chain != res2.chain:
+                            for atom1 in res1:
+                                for atom2 in res2:
+                                    distance = atom1 - atom2
+                                    if distance < max_distance:
+                                        interactions.append({"Chain" : res1.chain,
                                                             "Residue" : res1.id[1],
                                                             "Distance" : distance,
-                                                            "Interactor" : f"chain {res2.chain.id}"})
+                                                            "Interactor" : f"chain {res2.chain}"})
     
     # Trim the interactions down to the shortest interactor atom distance
     df = pd.DataFrame(interactions)
@@ -2122,7 +2157,7 @@ def extract_interactions(structure,
         if strict:
             raise ValueError("No intermolecular interactions found in structure. Use strict = False to return numpy NaN")
         else:
-            return np.NaN
+            return {}
     df = df.sort_values("Distance")
     df = df.drop_duplicates(ignore_index=True, subset=["Chain",
                                                        "Residue",
