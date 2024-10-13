@@ -2104,12 +2104,13 @@ def extract_interactions(structure,
                 residue.chain = str(chain.id)
                 residue.state = str(model)
                 residues.append(residue)
+                
+    if debug:
+        print(f"{len(residues)} residues found in structure.")
 
     if max_residues and len(residues) > max_residues:
         return {}
 
-    if debug:
-        print(f"{len(residues)} residues found in structure.")
     
     # Get chain interactions
     interactions = []
@@ -2118,7 +2119,6 @@ def extract_interactions(structure,
     # If multi-chain and no non-amino acids, only measure between chains.
     # OR if chain is the same, only measure distance if between an amino acid
     # and a non-amino. (think we already do that)
-    # Don't try res1 - res2 and res2 - res1, just do one.
     done_residues = []
     for res1 in residues:
         done_residues.append(res1)
@@ -2129,7 +2129,7 @@ def extract_interactions(structure,
                     and res1.state == res2.state:
                     # Get ligand/ion interactions by checking that
                     # its not an amino acid via the three letter code
-                    if is_amino_acid(res1) is True and is_amino_acid(res2) is False:
+                    if is_amino_acid(res1) ^ is_amino_acid(res2):
                         for atom1 in res1:
                             for atom2 in res2:
                                 distance = atom1 - atom2
@@ -2138,7 +2138,7 @@ def extract_interactions(structure,
                                                         "Residue" : res1.id[1],
                                                         "Distance" : distance,
                                                         "Interactor" : f"{res2.get_resname()}"})
-                    elif is_amino_acid(res1) is True and is_amino_acid(res2) is True:
+                    elif is_amino_acid(res1) and is_amino_acid(res2):
                         # Get interchain interaction if both are 
                         # amino acids
                         if res1.chain != res2.chain:
