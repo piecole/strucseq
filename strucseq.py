@@ -2255,8 +2255,6 @@ def extract_interactions(structure,
     if len(atoms) == 0:
         return {}
     neighbor_search = NeighborSearch(atoms)
-    
-    raise NotImplementedError("NEED TO CHANGE SO THAT THIS IS TWO-WAY")
 
     # Find all atom pairs within max_distance
     close_atom_pairs = neighbor_search.search_all(max_distance, level='A')
@@ -2287,21 +2285,31 @@ def extract_interactions(structure,
 
         # Get ligand/ion interactions
         if is_amino_acid(res1) ^ is_amino_acid(res2):
-            interactions.append({
+            interactions.extend([{
                 "Chain": res1.chain,
                 "Residue": res1.id[1],
                 "Distance": atom1 - atom2,
                 "Interactor": f"{res2.get_resname()}"
-            })
+            }, {
+                "Chain": res2.chain,
+                "Residue": res2.id[1],
+                "Distance": atom1 - atom2,
+                "Interactor": f"{res1.get_resname()}"
+            }])
         # Get interchain interactions between amino acids
         elif is_amino_acid(res1) and is_amino_acid(res2):
             if res1.chain != res2.chain:
-                interactions.append({
+                interactions.extend([{
                     "Chain": res1.chain,
                     "Residue": res1.id[1],
                     "Distance": atom1 - atom2,
                     "Interactor": f"chain {res2.chain}"
-                })
+                }, {
+                    "Chain": res2.chain,
+                    "Residue": res2.id[1],
+                    "Distance": atom1 - atom2,
+                    "Interactor": f"chain {res1.chain}"
+                }])
 
     # Trim the interactions to the shortest interactor atom distance
     df = pd.DataFrame(interactions)
