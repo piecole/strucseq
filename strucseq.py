@@ -15,6 +15,7 @@ import shutil
 import csv
 import re
 import statistics as stats
+from Bio.PDB.NeighborSearch import NeighborSearch
 
 try:
     import propka.run as pk
@@ -2056,7 +2057,7 @@ def combine_range(input : list):
             i.pop(1)
     return output
 
-def extract_interactions(structure,
+def extract_interactions_slow(structure,
                          max_distance : int = 4,
                          strict : bool = True,
                          max_residues : int = None,
@@ -2126,17 +2127,26 @@ def extract_interactions(structure,
                 # Check neither are HOH
                 if "HOH" not in [res1.get_resname(), res2.get_resname()] \
                     and res1.state == res2.state:
+                    stop_calculating = False
+                    max_long_distance = (len(res1) + len(res2)) * max_distance * 2
                     # Get ligand/ion interactions by checking that
                     # its not an amino acid via the three letter code
                     if is_amino_acid(res1) ^ is_amino_acid(res2):
                         for atom1 in res1:
                             for atom2 in res2:
                                 distance = atom1 - atom2
+                                if distance > max_long_distance:
+                                    stop_calculating = True
+                                    break
                                 if distance < max_distance:
+                                    stop_calculating = True
                                     interactions.append({"Chain" : res1.chain,
-                                                        "Residue" : res1.id[1],
-                                                        "Distance" : distance,
-                                                        "Interactor" : f"{res2.get_resname()}"})
+                                                         "Residue" : res1.id[1],
+                                                         "Distance" : distance,
+                                                         "Interactor" : f"{res2.get_resname()}"})
+                                    break
+                            if stop_calculating:
+                                        break
                     elif is_amino_acid(res1) and is_amino_acid(res2):
                         # Get interchain interaction if both are 
                         # amino acids
@@ -2144,11 +2154,18 @@ def extract_interactions(structure,
                             for atom1 in res1:
                                 for atom2 in res2:
                                     distance = atom1 - atom2
+                                    if distance > max_long_distance:
+                                        stop_calculating = True
+                                        break
                                     if distance < max_distance:
+                                        stop_calculating = True
                                         interactions.append({"Chain" : res1.chain,
-                                                            "Residue" : res1.id[1],
-                                                            "Distance" : distance,
-                                                            "Interactor" : f"chain {res2.chain}"})
+                                                             "Residue" : res1.id[1],
+                                                             "Distance" : distance,
+                                                             "Interactor" : f"chain {res2.chain}"})
+                                        break
+                                if stop_calculating:
+                                    break
     
     # Trim the interactions down to the shortest interactor atom distance
     df = pd.DataFrame(interactions)
@@ -2176,6 +2193,143 @@ def extract_interactions(structure,
             file.write(f"{len(residues)}\t{time.time() - start_time}\n")
 
     return interactions
+
+def extract_interactions(structure,
+                         max_distance: int = 4,
+                         strict: bool = True,
+                         max_residues: int = None,
+                         debug=False) -> pd.DataFrame:
+    """
+    Iterate through the chains in a structure and extract regions that
+    interact with ions, ligands, and other chains in the structure.
+
+    Parameters
+    ----------
+    structure : Bio.PDB.Structure
+        Structure to extract interactions from.
+    max_distance : int, optional
+        Maximum distance for an interaction to be considered. The default is 4.
+    strict : bool, optional
+        Whether to raise an exception if no interactions are found. If False then
+        if no interactions are found will return an empty dictionary. The default is True.
+    max_residues : int, optional
+        Maximum number of residues to check. If there are more residues than this in the 
+        structure then will return an empty dictionary. This is useful for ignoring large
+        structures that will slow down a screen. The default is None.
+
+    Returns
+    -------
+    dict
+
+    Examples
+    --------
+
+    >>> from strucseq import strucseq as sq
+    >>> structure = sq.parser.get_structure("struc", "structures/3OCP.ent")
+    >>> interactions = sq.extract_interactions(structure)
+
+    """
+
+    # Collect all residues and atoms
+    atoms = []
+    atom_to_residue = {}
+    for model in structure:
+        for chain in model:
+            for residue in chain:
+                residue.chain = str(chain.id)
+                residue.state = str(model)
+                for atom in residue:
+                    atoms.append(atom)
+                    atom_to_residue[atom] = residue
+
+    if debug:
+        print(f"{len(atoms)} atoms found in structure.")
+        print(f"Number of atoms collected: {len(atoms)}")
+        start_time = time.time()
+        
+
+    if max_residues and len(atom_to_residue) > max_residues:
+        return {}
+
+    # Build the NeighborSearch tree
+    if len(atoms) == 0:
+        return {}
+    neighbor_search = NeighborSearch(atoms)
+    
+    raise NotImplementedError("NEED TO CHANGE SO THAT THIS IS TWO-WAY")
+
+    # Find all atom pairs within max_distance
+    close_atom_pairs = neighbor_search.search_all(max_distance, level='A')
+
+    interactions = []
+    processed_residue_pairs = set()
+    for atom1, atom2 in close_atom_pairs:
+        res1 = atom_to_residue[atom1]
+        res2 = atom_to_residue[atom2]
+
+        # Skip interactions within the same residue
+        if res1 == res2:
+            continue
+
+        # Skip if residues are in different models (states)
+        if res1.state != res2.state:
+            continue
+
+        # Create a unique identifier for residue pairs to avoid duplicates
+        res_pair = tuple(sorted((id(res1), id(res2))))
+        if res_pair in processed_residue_pairs:
+            continue
+        processed_residue_pairs.add(res_pair)
+
+        # Check neither are HOH
+        if "HOH" in [res1.get_resname(), res2.get_resname()]:
+            continue
+
+        # Get ligand/ion interactions
+        if is_amino_acid(res1) ^ is_amino_acid(res2):
+            interactions.append({
+                "Chain": res1.chain,
+                "Residue": res1.id[1],
+                "Distance": atom1 - atom2,
+                "Interactor": f"{res2.get_resname()}"
+            })
+        # Get interchain interactions between amino acids
+        elif is_amino_acid(res1) and is_amino_acid(res2):
+            if res1.chain != res2.chain:
+                interactions.append({
+                    "Chain": res1.chain,
+                    "Residue": res1.id[1],
+                    "Distance": atom1 - atom2,
+                    "Interactor": f"chain {res2.chain}"
+                })
+
+    # Trim the interactions to the shortest interactor atom distance
+    df = pd.DataFrame(interactions)
+    if df.empty:
+        if strict:
+            raise ValueError("No intermolecular interactions found in structure. Use strict=False to return an empty dictionary.")
+        else:
+            return {}
+    df = df.sort_values("Distance")
+    df = df.drop_duplicates(ignore_index=True, subset=["Chain", "Residue", "Interactor"])
+
+    # Compile interactions into dictionaries with ranges of residues
+    df.sort_values(["Interactor", "Chain", "Distance"])
+    interactions_dict = {}
+    for chain in df["Chain"].unique():
+        interactions_dict[chain] = {}
+        for interactor in df[df["Chain"] == chain]["Interactor"].unique():
+            residues_list = df[(df["Chain"] == chain) & (df["Interactor"] == interactor)]["Residue"].tolist()
+            interactions_dict[chain][interactor] = combine_range(residues_list)
+
+    if debug:
+        print(f"Interactions extracted in {time.time() - start_time} seconds.")
+        # Append to file, create file if needed
+        with open("interactions.txt", "a") as file:
+            file.write(f"{len(atom_to_residue)}\t{time.time() - start_time}\n")
+
+    return interactions_dict
+
 
 def get_structure_sequences(structure):
     """
