@@ -2107,6 +2107,7 @@ def extract_interactions(structure,
                 
     if debug:
         print(f"{len(residues)} residues found in structure.")
+        start_time = time.time()
 
     if max_residues and len(residues) > max_residues:
         return {}
@@ -2117,8 +2118,6 @@ def extract_interactions(structure,
     # NEED TO SPEED THIS UP:
     # If only one molecule, just measure distannce to non-amino acids.
     # If multi-chain and no non-amino acids, only measure between chains.
-    # OR if chain is the same, only measure distance if between an amino acid
-    # and a non-amino. (think we already do that)
     done_residues = []
     for res1 in residues:
         done_residues.append(res1)
@@ -2169,6 +2168,12 @@ def extract_interactions(structure,
         interactions[chain] = {}
         for interactor in df[df["Chain"] == chain]["Interactor"].unique():
             interactions[chain][interactor] = combine_range(df[(df["Chain"] == chain) & (df["Interactor"] == interactor)]["Residue"].tolist())
+
+    if debug:
+        print(f"Interactions extracted in {time.time() - start_time} seconds.")
+        # Append to file, create file if needed
+        with open("interactions.txt", "a") as file:
+            file.write(f"{len(residues)}\t{time.time() - start_time}\n")
 
     return interactions
 
