@@ -1116,8 +1116,11 @@ def get_equivalentresidue(resnum : int,
         #   highscorer will be a string if it was a frameshifted residue, so turn this
         #   back to a plain integer. Also needs to remove the +/- frameshift.
         if isinstance(highscorer, str):
-            highscorer = int(highscorer.split("-")[0].split("+")[0])
-                
+            try:
+                highscorer = int(highscorer.split("-")[0].split("+")[0])
+            except ValueError as e:
+                print("Failed to convert highscorer to int:", highscorer)
+                raise e
         return [highscorer, highscore]
     else:
         return [np.NaN, np.NaN]
@@ -1192,9 +1195,13 @@ def convert_region(start_sequence: str, start_region : Union[int, list], end_seq
     
     #   Assert some stuff about the sequence
     assert isinstance(start_sequence, str), "Expected string for start_sequence, got " + repr(type(start_sequence))
+    if len(start_sequence) == 0:
+        raise Exception("start_sequence is emptry string.")
     assert type(start_region) in [list, int], "Expected list or int for start_region, got " + repr(type(start_region))
     assert isinstance(end_sequence, str), "Expected string for end_sequence, got " + repr(type(end_sequence))
-    
+    if len(end_sequence) == 0:
+        raise Exception("end_sequence is emptry string.")
+
     #   If only one number is presented for start region, duplicate it to give a range 
     #   of just one amino acid.
     try:
@@ -1226,9 +1233,9 @@ def convert_region(start_sequence: str, start_region : Union[int, list], end_seq
                         sequence """ + repr(start_sequence))
     
     for i in seq_range:
-        residue = get_equivalentresidue(i + 1,
-                                        start_sequence,
-                                        end_sequence,
+        residue = get_equivalentresidue(resnum = i + 1,
+                                        seq1 = start_sequence,
+                                        seq2 = end_sequence,
                                         debug = debug)
         residue[0] = residue[0]-1
         if residue[1] > 4:
@@ -1240,9 +1247,9 @@ def convert_region(start_sequence: str, start_region : Union[int, list], end_seq
     seq_reversed, new_region_start, new_region_end = reverse_sequence(start_sequence, start_region[0] + 2, start_region[1] + 2)
     reverse_end_sequence = end_sequence[::-1]
     for i in range(new_region_start, new_region_end + 1):
-        rev_residue = get_equivalentresidue(i + 1,
-                                            seq_reversed,
-                                            reverse_end_sequence,
+        rev_residue = get_equivalentresidue(resnum = i + 1,
+                                            seq1 = seq_reversed,
+                                            seq2 = reverse_end_sequence,
                                             debug = debug)
         if rev_residue[1] > 4:
             rev_residue.append(seq_reversed[i])
