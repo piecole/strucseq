@@ -93,9 +93,12 @@ get_hydrophobic7 = { #all the amino acid hydrophobicities at pH7
     "DCY":49 #R-cysteine same as L cysteine
 }
 
-def get_uniprot_accessions(pdbcode : str, strict = True, selenium = False, debug = False) -> dict:
+def get_uniprot_accessions(pdbcode : str,
+                           strict = True,
+                           selenium = False,
+                           debug = False) -> dict:
     """
-    Takes a pdb assession code and accesses the PDB to get the Uniprot assession 
+    Takes a PDB assession code and accesses the PDB to get the Uniprot assession 
     code of the protein for each chain
 
     Parameters
@@ -1417,7 +1420,10 @@ def convert_regions(regions : dict, seq1 : str, seq2) -> dict:
     
     return new_regions_per_seq2
 
-def get_uniprot_sequence(unicode : str, pass_nan : bool = True, pass_no_output = True, debug : bool = True) -> str:
+def get_uniprot_sequence(unicode : str,
+                         pass_nan : bool = True,
+                         pass_no_output = True,
+                         debug : bool = False) -> str:
     """
     When given a uniprot accession code will return the sequence of the protein.
 
