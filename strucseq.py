@@ -394,7 +394,8 @@ def get_uniprot_details(unicode : str, debug = False) -> dict:
     
     try:
         #   Search for the list of localisations and then put each one in a list
-        localisations = [x.text for x in soup.find("comment", {"type" : "subcellular location"}).find_all("location")]
+        localisations = [x.text for x in soup.find("comment",
+                                                   {"type" : "subcellular location"}).find_all("location")]
         #   Output this list
         output["localisations"] = localisations
     except:
