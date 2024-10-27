@@ -576,10 +576,10 @@ def iterate_uniprot_details_OLD(in_csv : str, out_csv : str, uniprot_csv : str =
     chains = ["a", "b"]
     #   Combines the known uniprot accessions into the screen product dataframe
     for chain in chains: #  Adds the uniprot based on on 'a chain' then 'b chain'
-        if uniprot_csv != None: #   If uniprotdata was specified, then add this to the dataframe
+        if uniprot_csv is not None: #   If uniprotdata was specified, then add this to the dataframe
             data = pd.merge(data, uniprotdata, how = "left", left_on=["PDBid", chain + " chain"], right_on=["PDB", "chain"]) #  Looks at the chain letter and pdb accession code and adds the row from the uniprot dataframe
             data = data.drop(["PDB", "chain"], axis = 1) #  Removes the added PDB code and chain since this information is duplicate
-            if species == None:
+            if species is None:
                 #   Renames the new 'chain' column to specify a or b
                 data = data.rename(columns = {"uniprot" : "uniprot " + chain}) #    
             else:
@@ -589,7 +589,7 @@ def iterate_uniprot_details_OLD(in_csv : str, out_csv : str, uniprot_csv : str =
     
     #if a species is specified, then look in that column for the accession code otherwise look in default column
     accession_columns = ["a", "b"]
-    if species == None:
+    if species is None:
         accession_columns = ["uniprot " + x for x in chains] #default column
     else:
         try:
@@ -631,13 +631,13 @@ def iterate_uniprot_details_OLD(in_csv : str, out_csv : str, uniprot_csv : str =
             # Combine that with the previously constructed dataframe
             dataset = pd.concat([dataset, newinfo], ignore_index = True) # adds 1 row to the dataset dataframe
         else:
-            if debug == True:
+            if debug:
                 print("not a uniprot accession:", row["uniprot"])
             
             
     #convert species column into dictionary for better access
     accession_columns = {"a chain": accession_columns[0], "b chain" : accession_columns[1]}
-    if species == None: #convert the species into text that can be used to name columns
+    if species is None: #convert the species into text that can be used to name columns
         species = ""
     else:
         species = species + " "
@@ -713,10 +713,10 @@ def iterate_uniprot_details(in_csv : str,
     
     #   Combines the known uniprot accessions into the screen product dataframe
     for chain_col in chain_cols: #  Adds the uniprot based on on 'a chain' then 'b chain'
-        if uniprot_csv != None: #   If uniprot_csv was specified, then add this to the dataframe
+        if uniprot_csv is not None: #   If uniprot_csv was specified, then add this to the dataframe
             data = pd.merge(data, uniprot_csv, how = "left", left_on=["PDBid", chain_col], right_on=["PDB", "chain"]) #  Looks at the chain letter and pdb accession code and adds the row from the uniprot dataframe
             data = data.drop(["PDB", "chain"], axis = 1) #  Removes the added PDB code and chain since this information is duplicate
-            if species == None:
+            if species is None:
                 #Renames the new 'chain' column to specify the chain
                 data = data.rename(columns = {"uniprot" : "uniprot " + chain_col}) #    
             else:
@@ -767,13 +767,13 @@ def iterate_uniprot_details(in_csv : str,
             newinfo = pd.DataFrame([newinfo],  columns = newinfo.keys())
             dataset = pd.concat([dataset, newinfo], ignore_index = True) # adds 1 row to the dataset dataframe
         else:
-            if debug == True:
+            if debug:
                 print("not a uniprot accession:", row["uniprot"])
             
             
     #convert species column into dictionary for better access
     accession_columns = {"a chain": accession_columns[0], "b chain" : accession_columns[1]}
-    if species == None: #convert the species into text that can be used to name columns
+    if species is None: #convert the species into text that can be used to name columns
         species = ""
     else:
         species = species + " "
@@ -812,7 +812,7 @@ def extract_chain_sequences_from_structure(structure : Structure.Structure):
                         print("residue", residue)
                         print("length", length)
                         raise e
-                except IndexError as e:
+                except IndexError:
                     print("res_list:", res_list, "residue:", residue, "resname:", resname)
             chain_sequences[chain.id] = "".join(res_list) #join the res_list compiled previously into strings add to a dictionary with the chain letters as keys
     return chain_sequences
