@@ -789,8 +789,6 @@ def iterate_uniprot_details(in_csv : str,
     #save all this as a new CSV
     data.to_csv(out_csv, sep="\t", index = False)
 
-parser = PDBParser()
-
 def extract_chain_sequences_from_structure(structure : Structure.Structure):
     chain_sequences = {}
     for chain in structure[0]:
@@ -850,7 +848,7 @@ def get_flanking_info(PDB_file : str,
     cysteine_list = []
     with gzip.open(PDB_file.encode("unicode_escape"), "rt") as unzipped: #open the structure
         try:
-            structure = parser.get_structure("struc", unzipped) #parse the structure
+            structure = PDBParser(QUIET=debug).get_structure("struc", unzipped) #parse the structure
         except OSError:
             raise Exception(f"Failed to parse structure from '{PDB_file}'.")
         
@@ -870,7 +868,8 @@ def get_flanking_info(PDB_file : str,
                     if resname != "HOH" and residue.id[1] >= 0: #check residue is not water and has a seq number of 0 or more
                         res_list[residue.id[1] -1] = threetoone[resname] #compile chain sequence
                 except:
-                    if debug == True: print("res list:", res_list, "residue:", residue)
+                    if debug:
+                        print("res list:", res_list, "residue:", residue)
                     res_list[residue.id[1] -1] = "!" #otherwise add exclamation marks
             for residue in realreslist:
                 if residue.get_resname() == amino_acid:
@@ -1909,7 +1908,8 @@ def check_structure_for_proximal_atoms(structure,
                                        max_distance = 10,
                                        HSE = False,
                                        b_factor = None,
-                                       strict = True):
+                                       strict = True,
+                                       quiet = True):
     """
     Open a protein structure (or structure) and search for two
     residues that are within a specified distance of each other. Returning a list of
@@ -1936,6 +1936,8 @@ def check_structure_for_proximal_atoms(structure,
     strict : bool, optional
         Whether to raise an exception if the atoms are not found in
         the intended residues. Default is True.
+    quiet : bool, optional
+        Whether to print structure parsing errors.
 
     Returns
     -------
@@ -1962,7 +1964,7 @@ def check_structure_for_proximal_atoms(structure,
     if isinstance(structure, str):
         # Make sure structure file exists
         assert os.path.exists(structure), "Structure file not found."
-        structures = PDBParser().get_structure("structure", structure)
+        structures = PDBParser(QUIET = quiet).get_structure("structure", structure)
     else:
         # Make sure structure is a structure
         assert isinstance(structure, Structure.Structure), "Expected Bio.PDB.Structure.Structure for structure, got " + repr(type(structure))
@@ -2104,7 +2106,7 @@ def extract_interactions_slow(structure,
     --------
 
     >>> from strucseq import strucseq as sq
-    >>> structure = sq.parser.get_structure("struc", "structures/3OCP.ent")
+    >>> structure = sq.PDBParser().get_structure("struc", "structures/3OCP.ent")
     >>> interactions = sq.extract_interactions(structure)
 
     """
@@ -2239,7 +2241,7 @@ def extract_interactions(structure,
     --------
 
     >>> from strucseq import strucseq as sq
-    >>> structure = sq.parser.get_structure("struc", "structures/3OCP.ent")
+    >>> structure = sq.PDBParser().get_structure("struc", "structures/3OCP.ent")
     >>> interactions = sq.extract_interactions(structure)
 
     """
@@ -2467,10 +2469,11 @@ def get_res_HSE_file(PDB_file,
                 resn2 = None,
                 alternate = False,
                 only_chains = False,
-                fast = True): #get the half sphere exposure of the CA atom of a residue: https://biopython.org/wiki/The_Biopython_Structural_Bioinformatics_FAQ
+                fast = True,
+                quiet = True): #get the half sphere exposure of the CA atom of a residue: https://biopython.org/wiki/The_Biopython_Structural_Bioinformatics_FAQ
     
     with gzip.open(PDB_file, "rt") as unzipped:
-        structure = parser.get_structure("struc", unzipped)
+        structure = PDBParser(QUIET = quiet).get_structure("struc", unzipped)
         return get_res_HSE_structure(structure,
                                 chain1,
                                 resn1,
