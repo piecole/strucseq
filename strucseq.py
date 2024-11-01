@@ -93,74 +93,47 @@ get_hydrophobic7 = { #all the amino acid hydrophobicities at pH7
     "DCY":49 #R-cysteine same as L cysteine
 }
 
-def get_uniprot_accessions(pdbcode : str,
-                           strict = True,
-                           selenium = False,
-                           debug = False) -> dict:
+def get_uniprot_accessions(pdb_id : str) -> dict:
     """
-    Takes a PDB assession code and accesses the PDB to get the Uniprot assession 
-    code of the protein for each chain
+    Fetches the UniProt-to-chain mappings for a given PDB ID from the PDBe API.
 
     Parameters
     ----------
-    pdbcode : str
-        The 4-letter protein data bank (PDB) code.
-    strict : bool, optional
-        If False, will not raise an exception in input is incorrect.
-    selenium : bool, optional
-        Choose to use selenium to scrabe the browser version, rather than the XML 
-        version (currently not got this feature working)
-    debug : bool, optional
-        Write information to console
+    pdb_id : str
+        The 4-character PDB identifier.
 
     Returns
     -------
-    dict
-        Uniprot accession codes of each chain in the strcture. Key is the chain identifier,
-        content is the accession code.
-
+    dict: A dictionary containing the mappings of UniProt IDs to chain IDs and residue ranges.
+            Returns None if an error occurs.
     """
+    # Ensure the PDB ID is in lowercase
+    pdb_id = pdb_id.lower()
     
-    #   Catch incorrect inputs as long as strict is True
-    if strict is True:
-        assert isinstance(pdbcode, str) is True, "Expected 4 letter string for pdbcode, got type: " + type(pdbcode).__name__ + "."
-        assert len(pdbcode) == 4, f"Expected 4 letter string for pdbcode, got: '{pdbcode}'."
+    # Construct the API URL
+    url = f'https://www.ebi.ac.uk/pdbe/api/mappings/uniprot/{pdb_id}'
     
-    #   Fetch the xml version of the uniprot site in beautifulsoup
-    if selenium is False:
-        fails = 0
-        worked = False
-        while worked is False:
-            try:
-                if debug:
-                    print(f"Getting PDB XML for {pdbcode}")
-                soup = BeautifulSoup(requests.get("https://files.rcsb.org/view/" + pdbcode + "-noatom.xml").text, features= "lxml")
-                worked = True
-            except:
-                fails = fails + 1
-                time.sleep(fails**2)
-        
-        entries = {} #  Create a dictionary to store each entry
-        try:
-            for entry in soup.find("pdbx:struct_ref_seqcategory").find_all("pdbx:struct_ref_seq"): #find each chain entry
-                try:
-                    info = entry.find("pdbx:pdbx_db_accession").text
-                    if len(info) > 4:
-                        entries[entry.find("pdbx:pdbx_strand_id").text] = info #extract each one as a uniprot code assigend with a chain letter
-                except:
-                    if debug is True:
-                        print("no uniprot accession found")
-        except:
-            if debug:
-                print("no accession section found for ", pdbcode)
-            
-            for entry in entries:
-                if len(entries[entry]) > 6: #   Check if entry is wrong length, then what?
-                    if debug is True:
-                        print("Bad uniprots for " + pdbcode)
-                    break
-            
-    return entries
+    # Make the HTTP GET request
+    response = requests.get(url)
+    response.raise_for_status()  # Raises HTTPError for bad responses
+
+    # Parse the JSON response
+    data = response.json()
+
+    # Initialize an empty dictionary to store the chain-to-UniProt mapping
+    chain_to_uniprot = {}
+
+    # Extract the UniProt mappings
+    for pdb_id, pdb_data in data.items():
+        uniprot_entries = pdb_data.get('UniProt', {})
+        for uniprot_code, uniprot_data in uniprot_entries.items():
+            mappings = uniprot_data.get('mappings', [])
+            for mapping in mappings:
+                chain_id = mapping.get('chain_id')
+                if chain_id:
+                    chain_to_uniprot[chain_id] = uniprot_code
+
+    return chain_to_uniprot
 
 
 #   OLD VERSION OF THE FUNCTION:
