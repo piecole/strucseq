@@ -1444,9 +1444,7 @@ def get_uniprot_sequence(unicode : str,
         # Otherwise a message if output is ""
         if output == "" and debug == True:
             print(f"No sequence found for {unicode}.")
-
         return output
-    
     else: # If input was nan and pass_nan = True then print this message
         if debug == True: print("Given nan as unicode to function get_uniprot_sequence().")
 
@@ -1506,7 +1504,12 @@ def get_oximouse_data(age : str):
 
     return df
 
-def get_alphafold_structure(uniprot_code : str, folder : str = "structures", extension = "ent", strict = False, debug = False):
+def get_alphafold_structure(uniprot_code : str,
+                            folder : str = "structures",
+                            extension = "ent",
+                            strict = False,
+                            debug = False,
+                            silent = False):
     """
     Downloads a structure from AlphaFold for a given uniprot code.
 
@@ -1528,9 +1531,7 @@ def get_alphafold_structure(uniprot_code : str, folder : str = "structures", ext
     None.
     
     """
-    
     folder = parse_folder(folder)
-
     # Check whether the structure exists
     if os.path.exists(folder + uniprot_code + "." + extension):
         if debug:
@@ -1538,8 +1539,9 @@ def get_alphafold_structure(uniprot_code : str, folder : str = "structures", ext
         return
 
     # Get the structure
-    print("Downloading structure for " + uniprot_code + " from AlphaFold. Please cite: ")
-    print("Jumper, J., Evans, R., Pritzel, A. et al. Highly accurate protein structure prediction with AlphaFold. Nature 596, 583–589 (2021). https://doi.org/10.1038/s41586-021-03819-2")
+    if not silent:
+        print("Downloading structure for " + uniprot_code + " from AlphaFold. Please cite: ")
+        print("Jumper, J., Evans, R., Pritzel, A. et al. Highly accurate protein structure prediction with AlphaFold. Nature 596, 583–589 (2021). https://doi.org/10.1038/s41586-021-03819-2")
     url = "https://alphafold.ebi.ac.uk/files/AF-" + uniprot_code + "-F1-model_v4.pdb"
     data = requests.get(url, allow_redirects=True)
 
@@ -1574,7 +1576,6 @@ def PDBsearch(query : str) -> list:
 def get_PDB_structure(pdb_id : str,
                       folder : str = "structures",
                       extension = "ent",
-                      strict = False,
                       debug = False):
     """
     Downloads a structure from the PDB for a given PDB ID.
@@ -1591,28 +1592,21 @@ def get_PDB_structure(pdb_id : str,
         Whether to raise an exception if the structure is not found. The default is False.
     debug : bool, optional
         Whether to print messages as it goes. The default is False.
-
     Returns
     -------
     None.
-    
     """
-    
     folder = parse_folder(folder)
-
     # Check whether the structure exists
     if os.path.exists(folder + pdb_id + "." + extension):
         if debug:
             print("Already have structure for " + pdb_id + ".")
         return
-
     # Get the structure
     if debug:
         print("Downloading structure for " + pdb_id + " from PDB.")
-
     url = "https://files.rcsb.org/download/" + pdb_id + ".pdb"
     data = requests.get(url, allow_redirects=True)
-
     open(folder + pdb_id + "." + extension, 'wb').write(data.content)
 
 import propka.run as pk
