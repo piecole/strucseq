@@ -314,7 +314,7 @@ def iterate_uniprot_accessions(in_csv : str,
             uniprotpd.loc[e] = [PDBcode, letter, chaindetails[letter]] 
             e = e + 1
 
-    
+
     uniprotpd = pd.concat([uniprotpd, previous_file])
     try:
         uniprotpd.to_csv(out_csv, sep=delimiter, index = False)
@@ -322,7 +322,7 @@ def iterate_uniprot_accessions(in_csv : str,
         if debug:
             print("Failed save, using utf-8 instead.")
         uniprotpd.to_csv(out_csv, sep=delimiter, encoding='utf-8', index = False)
-        
+
 def get_uniprot_details(unicode : str, debug = False) -> dict:
     """
     
@@ -343,7 +343,7 @@ def get_uniprot_details(unicode : str, debug = False) -> dict:
         and descriptions.
 
     """
-    
+
     try:
         url = "https://www.uniprot.org/uniprot/" + unicode + ".xml"
         if debug:
@@ -354,7 +354,7 @@ def get_uniprot_details(unicode : str, debug = False) -> dict:
     output = {}
     if debug:
         print(f"Extracting Uniprot information from code: {unicode}.")
-  
+
     #   Fetch the xml version of the uniprot site in beautifulsoup
     # Added try loop due to error: ConnectionError: ('Connection aborted.', RemoteDisconnected('Remote end closed connection without response'))
     tries = 0
