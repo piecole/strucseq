@@ -1126,7 +1126,7 @@ def reverse_sequence(sequence, seq_start = False, seq_end = False):
     """
 
     # If no start or end is given, just reverse the sequence
-    if seq_start == False and seq_end == False:
+    if seq_start is False and seq_end is False:
         return sequence[::-1]
     assert isinstance(seq_start, int), "Expected int for seq_start, got " + repr(type(seq_start))
     assert isinstance(seq_end, int), "Expected int for seq_end, got " + repr(type(seq_end))
@@ -1137,7 +1137,10 @@ def reverse_sequence(sequence, seq_start = False, seq_end = False):
     new_end = end - seq_start
     return sequence[::-1], new_start + 1, new_end + 1
 
-def convert_region(start_sequence: str, start_region : Union[int, list], end_sequence : str, debug = False) -> dict:
+def convert_region(start_sequence: str,
+                   start_region : Union[int, list],
+                   end_sequence : str,
+                   debug = False) -> dict:
     """
     Takes a start_region in start_sequence and returns where this region is in end_sequence. 
     Use biological sequence numbers (start at 1)
