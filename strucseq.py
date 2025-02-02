@@ -1,12 +1,5 @@
 import time
-import requests
-from bs4 import BeautifulSoup
-import pandas as pd
-import numpy as np
 import gzip
-from Bio.PDB import *
-from Bio.Blast import NCBIWWW
-from Bio.Blast import NCBIXML
 from typing import Union
 import ast
 import os
@@ -15,6 +8,13 @@ import shutil
 import csv
 import re
 import statistics as stats
+import requests
+from bs4 import BeautifulSoup
+import pandas as pd
+import numpy as np
+from Bio.PDB import *
+from Bio.Blast import NCBIWWW
+from Bio.Blast import NCBIXML
 from Bio.PDB.NeighborSearch import NeighborSearch
 
 try:
@@ -37,18 +37,23 @@ except ModuleNotFoundError:
     def tqdm(iterator, *args, **kwargs):
         return iterator
     print("tqdm not installed, progress bars will not work.")
-    
-alphabet = ["A","B","C","D","E","F","G","H","I","J","K","L","M","N","O","P","Q","R","S","T","U","V","W","X","Y","Z", "DCY"]
-threeletter = ["ALA","DCY","CYS","ASP","GLU","PHE","GLY","HIS","ILE","JXX","LYS","LEU","MET","ASN","OXX","PRO","GLN","ARG","SER","THR","MSE","VAL","TRP","TPO","TYR","SEP"]
+
+alphabet = ["A","B","C","D","E","F","G","H","I","J","K","L","M","N","O","P",
+            "Q","R","S","T","U","V","W","X","Y","Z", "DCY"]
+threeletter = ["ALA","DCY","CYS","ASP","GLU","PHE","GLY","HIS","ILE","JXX",
+               "LYS","LEU","MET","ASN","OXX","PRO","GLN","ARG","SER","THR",
+               "MSE","VAL","TRP","TPO","TYR","SEP"]
 threetoone = dict(zip(threeletter, alphabet))
 
 # Fix forward slashes in filepaths and create missing folders
 def parse_folder(input_folder : str):
-    assert isinstance(input_folder, str), "str expected for input_folder, got" + repr(type(input_folder))
+    """ Take a folder string and ensure it is formatted correctly. """
+    assert isinstance(input_folder,
+                      str), "str expected for input_folder, got" + repr(type(input_folder))
     input_folder = input_folder.replace("\\", "/")
     if input_folder[-1] != "/":
         input_folder = input_folder + "/"
-    
+
     # Create missing folder
     if not os.path.exists(input_folder):
         os.makedirs(input_folder)
@@ -56,17 +61,19 @@ def parse_folder(input_folder : str):
     return input_folder
 
 get_pKa = { #this dictioary defines the pKas of amino acid side chains
-    #according to: https://www.sigmaaldrich.com/life-science/metabolomics/learning-center/amino-acid-reference-chart.html#prop
-    "R": 12.48, "D": 3.65, "C": 8.18, "E": 4.25, "H": 6.00, "K": 10.53, "Y": 10.07, "U":1, "X":5.9, "Z":5.6, "DCY":8.18
-    #selenomethionine "U" has been given as pKa 1 as no value is known
-    #phosphoserine and phospohthreonine are from 16018962
-    #R-cysteine given same value as L-cysteine
+    # According to:
+    # https://www.sigmaaldrich.com/life-science/metabolomics/learning-center/amino-acid-reference-chart.html#prop
+    "R": 12.48, "D": 3.65, "C": 8.18, "E": 4.25, "H": 6.00, "K": 10.53,
+    "Y": 10.07, "U":1, "X":5.9, "Z":5.6, "DCY":8.18
+    # Selenomethionine "U" has been given as pKa 1 as no value is known
+    # Phosphoserine and phospohthreonine are from 16018962
+    # R-cysteine given same value as L-cysteine
 }
 get_charge = {
     "R": 1, "D": -1, "E": -1, "H": 1, "K": 1
     }
 
-get_hydrophobic7 = { #all the amino acid hydrophobicities at pH7
+get_hydrophobic7 = { # All the amino acid hydrophobicities at pH7
     "A":41,
     "C":49,
     "D":-55,
@@ -84,13 +91,14 @@ get_hydrophobic7 = { #all the amino acid hydrophobicities at pH7
     "R":-14,
     "S":-5,
     "T":13,
-    "U":74, #selenomethonine same as methionine since no value is known for selenomethionine? - check this
+    "U":74, # Selenomethonine same as methionine since no value is known
+            # for selenomethionine? - check this
     "V":76,
     "W":97,
-    "X":0, #phospohthreonine unknown what value to give
+    "X":0, # Phospohthreonine unknown what value to give
     "Y":63,
-    "Z":0, #phosphothreonine unknown what value to give
-    "DCY":49 #R-cysteine same as L cysteine
+    "Z":0, # Phosphothreonine unknown what value to give
+    "DCY":49 # R-cysteine same as L cysteine
 }
 
 def get_uniprot_accessions(pdb_id : str) -> dict:
@@ -109,10 +117,10 @@ def get_uniprot_accessions(pdb_id : str) -> dict:
     """
     # Ensure the PDB ID is in lowercase
     pdb_id = pdb_id.lower()
-    
+
     # Construct the API URL
     url = f'https://www.ebi.ac.uk/pdbe/api/mappings/uniprot/{pdb_id}'
-    
+
     # Make the HTTP GET request
     response = requests.get(url)
     response.raise_for_status()  # Raises HTTPError for bad responses
@@ -137,7 +145,11 @@ def get_uniprot_accessions(pdb_id : str) -> dict:
 
 
 #   OLD VERSION OF THE FUNCTION:
-def iterate_uniprot_accessions_OLD(in_csv : str, chain_cols : list, out_csv : str, delimiter = "\t", rows : str = 10000000000000, debug = True):
+def iterate_uniprot_accessions_OLD(in_csv : str,
+                                   out_csv : str,
+                                   delimiter = "\t",
+                                   rows : str = 10000000000000,
+                                   debug = True):
     """
     Takes an input CSV with a PDBid header and some custom headers to get the chains from
     and returns a csv with the assession codes and unique structures and chains.
@@ -158,7 +170,7 @@ def iterate_uniprot_accessions_OLD(in_csv : str, chain_cols : list, out_csv : st
     THIS FUNCTION IS TOO SPECIFIC TO ReDisulphID WRITTING NEW VERSION NEXT
 
     """
-    
+
     data = pd.read_csv(in_csv, delimiter = delimiter)
     try:
         previous_file = pd.read_csv(out_csv, delimiter = delimiter)
@@ -170,28 +182,32 @@ def iterate_uniprot_accessions_OLD(in_csv : str, chain_cols : list, out_csv : st
         fetched_chains = []
         if debug:
             print("starting new PDB list")
-    
+
     apd = data[["PDBid", "a chain"]].rename(columns = {"a chain" : "chain"})
     bpd = data[["PDBid", "b chain"]].rename(columns = {"b chain" : "chain"})
-    uniquechains = pd.concat([apd, bpd], ignore_index = True).reset_index(drop = True).drop_duplicates()
+    uniquechains = pd.concat([apd,
+                              bpd], ignore_index = True).reset_index(drop = True).drop_duplicates()
 
     uniquePDBs = uniquechains["PDBid"].drop_duplicates().reset_index(drop = True)
-    
+
     uniprotpd = pd.DataFrame({"PDB" : [], "chain": [], "uniprot": []})
     i = 0
     e = 0
-    
+
     pbar = tqdm(np.setdiff1d(list(uniquePDBs), fetched_chains))
     for PDBcode in pbar:
         pbar.set_description("Getting uniprot accessions: " + PDBcode)
         if i < rows:
-            
+
             chaindetails = {}
             tries = 0
-            while tries < 3 and chaindetails == {}: #if no details are returned, try a couple more times
-                chaindetails = get_uniprot_accessions(PDBcode) #this is because sometimes no details are returned when there should be some, probably due to anti-scraping measures
+            while tries < 3 and not chaindetails: # If no details are returned,
+                                                  # try a couple more times
+                # This is because sometimes no details are returned when there
+                # should be some, probably due to anti-scraping measures
+                chaindetails = get_uniprot_accessions(PDBcode)
                 tries = tries + 1
-            
+
             if debug:
                 if tries == 3:
                     print("no accessions found")
@@ -199,13 +215,13 @@ def iterate_uniprot_accessions_OLD(in_csv : str, chain_cols : list, out_csv : st
                     print("found accessions in", str(tries), "tries.")
             if debug:
                 print(chaindetails)
-            
-            for letter in chaindetails: #   Iterate each letter in the dictionary
+
+            for letter in chaindetails: # Iterate each letter in the dictionary
                 #   Create a new row with the ID, chain letter, and uniprot code
-                uniprotpd.loc[e] = [PDBcode, letter, chaindetails[letter]] 
+                uniprotpd.loc[e] = [PDBcode, letter, chaindetails[letter]]
                 e = e + 1
         i = i + 1
-    
+
     uniprotpd = pd.concat([uniprotpd, previous_file])
     try:
         uniprotpd.to_csv(out_csv, sep=delimiter, index = False)
@@ -214,7 +230,11 @@ def iterate_uniprot_accessions_OLD(in_csv : str, chain_cols : list, out_csv : st
             print("Failed save, using utf-8 instead.")
         uniprotpd.to_csv(out_csv, sep=delimiter, encoding='utf-8', index = False)
 
-def iterate_uniprot_accessions(in_csv : str, chain_cols, out_csv : str, delimiter = "\t", debug = True):
+def iterate_uniprot_accessions(in_csv : str,
+                               chain_cols,
+                               out_csv : str,
+                               delimiter = "\t",
+                               debug = True):
     """
     Takes an input CSV with a PDBid header and specified custom header(s) to get the
     uniprot ID of the chains and saves a CSV with the assession codes and unique structures
@@ -236,7 +256,7 @@ def iterate_uniprot_accessions(in_csv : str, chain_cols, out_csv : str, delimite
         Whether to print progess or other notifications
 
     """
-    
+
     data = pd.read_csv(in_csv, delimiter = delimiter)
     try:
         previous_file = pd.read_csv(out_csv, delimiter = delimiter)
@@ -248,35 +268,39 @@ def iterate_uniprot_accessions(in_csv : str, chain_cols, out_csv : str, delimite
         fetched_chains = []
         if debug:
             print("starting new PDB list")
-            
+
     #   Make separate dataframes for each of the chain cols and then combine them
     uniquechains = pd.DataFrame()
-    
+
     #   Parse chain_cols into a list if it is a string
     if isinstance(chain_cols, str):
         chain_cols = [chain_cols]
-    
+
     for chain_col in chain_cols:
         #   Make the df
         new_df = data[["PDBid", chain_col]].rename(columns = {chain_col : "chain"})
         #   Combine it with the previously made df
-        uniquechains = pd.concat([uniquechains, new_df], ignore_index = True).reset_index(drop = True).drop_duplicates()
+        uniquechains = pd.concat([uniquechains,
+                                  new_df], ignore_index = True).reset_index(drop = True).drop_duplicates()
 
     uniquePDBs = uniquechains["PDBid"].drop_duplicates().reset_index(drop = True)
     
     uniprotpd = pd.DataFrame({"PDB" : [], "chain": [], "uniprot": []})
     e = 0
-    
+
     pbar = tqdm(np.setdiff1d(list(uniquePDBs), fetched_chains))
     for PDBcode in pbar:
         pbar.set_description("Getting uniprot accessions: " + PDBcode)
 
         chaindetails = {}
         tries = 0
-        while tries < 3 and chaindetails == {}: #if no details are returned, try a couple more times
-            chaindetails = get_uniprot_accessions(PDBcode) #this is because sometimes no details are returned when there should be some, probably due to anti-scraping measures
+        while tries < 3 and not chaindetails: # If no details are returned,
+                                              # try a couple more times
+            # This is because sometimes no details are returned when there
+            # should be some, probably due to anti-scraping measures
+            chaindetails = get_uniprot_accessions(PDBcode)
             tries = tries + 1
-        
+
         if debug:
             if tries == 3:
                 print("no accessions found")
@@ -284,7 +308,7 @@ def iterate_uniprot_accessions(in_csv : str, chain_cols, out_csv : str, delimite
                 print("found accessions in", str(tries), "tries.")
         if debug:
             print(chaindetails)
-        
+
         for letter in chaindetails: #   Iterate each letter in the dictionary
             #   Create a new row with the ID, chain letter, and uniprot code
             uniprotpd.loc[e] = [PDBcode, letter, chaindetails[letter]] 
