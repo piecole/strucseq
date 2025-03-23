@@ -355,8 +355,9 @@ def get_uniprot_details(unicode : str, debug = False) -> dict:
     if debug:
         print(f"Extracting Uniprot information from code: {unicode}.")
 
-    #   Fetch the xml version of the uniprot site in beautifulsoup
-    # Added try loop due to error: ConnectionError: ('Connection aborted.', RemoteDisconnected('Remote end closed connection without response'))
+    # Fetch the xml version of the uniprot site in beautifulsoup
+    # Added try loop due to error: ConnectionError: ('Connection aborted.',
+    # RemoteDisconnected('Remote end closed connection without response'))
     tries = 0
     while tries < 10:
         try:
@@ -381,13 +382,13 @@ def get_uniprot_details(unicode : str, debug = False) -> dict:
     try:
         output["uniprot name"] = soup.find_all("fullname")[0].text
     except IndexError:
-        output["uniprot name"] = np.NaN
+        output["uniprot name"] = np.nan
     
     #   Get the uniprot abbreviation.
     try:
         output["uniprot abbreviation"] = soup.find_all("name")[0].text
     except IndexError:
-        output["uniprot abbreviation"] = np.NaN
+        output["uniprot abbreviation"] = np.nan
     
     try:
         #   Search for the list of localisations and then put each one in a list
@@ -397,14 +398,14 @@ def get_uniprot_details(unicode : str, debug = False) -> dict:
         output["localisations"] = localisations
     except:
         #   If there is no such localisation
-        output["localisations"] = np.NaN
+        output["localisations"] = np.nan
     
     #   Get the first description
     try:
         output["description"] = soup.find("title").text
     except:
         #   If no description found.
-        output["description"] = np.NaN
+        output["description"] = np.nan
         
     #   Get disease variants
     variants = {}
@@ -786,7 +787,7 @@ def iterate_uniprot_details(in_csv : str,
     #save all this as a new CSV
     data.to_csv(out_csv, sep="\t", index = False)
 
-def extract_chain_sequences_from_structure(structure : Structure.Structure):
+def extract_chain_sequences_from_structure(structure : Structure):
     chain_sequences = {}
     for chain in structure[0]:
         length = max([i.id[1] for i in chain]) #determine how long the chain actually is, ignoring gaps
@@ -1065,9 +1066,9 @@ def get_equivalentresidue(resnum : int,
         assert isinstance(seq2, str), "Expected str for seq2, got '" + repr(seq2) + "' which is " + repr(type(seq2))
     else:
         if isinstance(seq1, str) == False:
-            return [np.NaN, np.NaN]
+            return [np.nan, np.nan]
         if isinstance(seq2, str) == False:
-            return [np.NaN, np.NaN]
+            return [np.nan, np.nan]
 
     #   Extract the flanking sequence in seq1
     failed = False
@@ -1092,7 +1093,7 @@ def get_equivalentresidue(resnum : int,
                             frameshift = 1)
 
         highscore = 0
-        highscorer = np.NaN
+        highscorer = np.nan
         for potential in seq2:  #   For potential residues in the seq2 dictionary
             score = 0
             for seq2index, letter in enumerate(seq2[potential]):
@@ -1120,10 +1121,10 @@ def get_equivalentresidue(resnum : int,
                 raise e
         return [highscorer, highscore]
     else:
-        return [np.NaN, np.NaN]
+        return [np.nan, np.nan]
     #except:
     #    if debug == True: print("Failed to get equivalent residue. Resnum:", resnum, " Seq1:", seq1, " Seq2:", seq2)
-    #    return [np.NaN, np.NaN]
+    #    return [np.nan, np.nan]
 
 def reverse_sequence(sequence, seq_start = False, seq_end = False):
     """
@@ -1191,7 +1192,7 @@ def convert_region(start_sequence: str,
     #   Check if start_region is nan, if so, just return NaN
     if isinstance(start_region, list) is False:
         if pd.isnull(start_region):
-            return {"start" : np.NaN, "end": np.NaN, "score" : np.NaN}
+            return {"start" : np.nan, "end": np.nan, "score" : np.nan}
 
     #   Assert some stuff about the sequence
     assert isinstance(start_sequence,
@@ -1211,15 +1212,15 @@ def convert_region(start_sequence: str,
         if len(start_region) == 1:
             start_region.append(start_region[0])
 
-        #   If one number in the range is np.NaN, duplicate the other number into that spot.
+        #   If one number in the range is np.nan, duplicate the other number into that spot.
         if pd.isnull(start_region[0]):
             start_region[0] = start_region[0]
         if pd.isnull(start_region[1]):
             start_region[1] = start_region[0]
-        #   If either number is now np.NaN, this means both were np.NaN, so just return
+        #   If either number is now np.nan, this means both were np.nan, so just return
         #   nan values.
-        if np.NaN in start_region:
-            return {"start" : np.NaN, "end": np.NaN, "score" : np.NaN}
+        if np.nan in start_region:
+            return {"start" : np.nan, "end": np.nan, "score" : np.nan}
     except:
         start_region = [int(start_region), (start_region)] # If not a list, duplicate into a list.
     start_sequence = "X" + start_sequence #add an X to the begining of start sequence to fix indexing
@@ -1341,7 +1342,7 @@ def int_or_nan(intended_integer):
     try:
         return int(intended_integer)
     except:
-        return np.NaN
+        return np.nan
 
 def convert_regions(regions : dict, seq1 : str, seq2) -> dict:
     """
@@ -1368,7 +1369,7 @@ def convert_regions(regions : dict, seq1 : str, seq2) -> dict:
 
     #   Check that none of the inputs are null
     if pd.isnull(regions) or pd.isnull(seq1) or pd.isnull(seq2):
-        return np.NaN
+        return np.nan
     if isinstance(regions, str):
         # Convert the dictionary string to dict
         regions = ast.literal_eval(regions) 
@@ -1487,7 +1488,7 @@ def plusminusorNaN(input, separator):
     try:
         return input.split(separator)
     except:
-        return [input, np.NaN]
+        return [input, np.nan]
 
 def separatevariance(input, separator, var_addon):
     """
@@ -2307,7 +2308,7 @@ def get_res_HSE_structure(structure,
         try:
             info1 = exp_ca[(model[chain1].get_id(), res_id1)]
         except:
-            info1 = (np.NaN, np.NaN, 1)
+            info1 = (np.nan, np.nan, 1)
             if debug:
                 print("Failed at exp_ca[(model[chain1].get_id(), res_id1)]")
         if chain2 == None:
@@ -2317,7 +2318,7 @@ def get_res_HSE_structure(structure,
                 res_id2 = model[chain2][resn2].get_id()
                 info2 = exp_ca[(model[chain2].get_id(), res_id2)]
             except:
-                info2 = (np.NaN, np.NaN, 1)
+                info2 = (np.nan, np.nan, 1)
             return [info1, 
                     info2]
     else:
