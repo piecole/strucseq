@@ -2075,7 +2075,6 @@ def combine_range(input : list):
 def extract_interactions(structure,
                          max_distance: int = 4,
                          strict: bool = True,
-                         max_residues: int = None,
                          debug=False) -> pd.DataFrame:
     """
     Iterate through the chains in a structure and extract regions that
@@ -2090,10 +2089,6 @@ def extract_interactions(structure,
     strict : bool, optional
         Whether to raise an exception if no interactions are found. If False then
         if no interactions are found will return an empty dictionary. The default is True.
-    max_residues : int, optional
-        Maximum number of residues to check. If there are more residues than this in the 
-        structure then will return an empty dictionary. This is useful for ignoring large
-        structures that will slow down a screen. The default is None.
 
     Returns
     -------
@@ -2126,9 +2121,6 @@ def extract_interactions(structure,
             print(f"{len(atoms)} atoms found in structure.")
             print(f"Number of atoms collected: {len(atoms)}")
             start_time = time.time()
-
-        if max_residues and len(atom_to_residue) > max_residues:
-            return {}
 
         # Build the NeighborSearch tree
         if len(atoms) == 0:

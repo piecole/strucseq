@@ -592,3 +592,139 @@ dictionaries with two residues and their distance from each other.
   'distance': 4.3076897}]
 ```
 
+## extract_chain_sequences_from_structure
+
+```python
+extract_chain_sequences_from_structure(structure)
+```
+
+Extract sequences from each chain in a protein structure.
+
+### Parameters
+
+**structure** : Bio.PDB.Structure  
+    The protein structure to extract sequences from.
+
+### Returns
+
+**dict**  
+    Dictionary with chain IDs as keys and sequences as values. Gaps and unknown residues are represented with "!".
+
+### Examples
+
+```python
+>>> from Bio import PDB
+>>> structure = PDB.PDBParser().get_structure("struc", "1abc.pdb")
+>>> sequences = extract_chain_sequences_from_structure(structure)
+>>> print(sequences)
+{'A': 'MKWVTFISLLLLFSSAYS...', 'B': 'VLSPADKTNVKAAW...'}
+```
+
+## extract_interactions
+
+```python
+extract_interactions(structure, max_distance=4, strict=True, max_residues=None, debug=False)
+```
+
+Iterate through the chains in a structure and extract regions that interact with ions, ligands, and other chains in the structure.
+
+### Parameters
+
+**structure** : Bio.PDB.Structure  
+    Structure to extract interactions from.
+
+**max_distance** : int, optional  
+    Maximum distance for an interaction to be considered. The default is 4.
+
+**strict** : bool, optional  
+    Whether to raise an exception if no interactions are found. If False then if no interactions are found will return an empty dictionary. The default is True.
+
+**max_residues** : int, optional  
+    Maximum number of residues to check. If there are more residues than this in the structure then will return an empty dictionary. This is useful for ignoring large structures that will slow down a screen. The default is None.
+
+**debug** : bool, optional  
+    Whether to print debug information. The default is False.
+
+### Returns
+
+**dict**  
+    Dictionary containing interaction information for each chain in the structure. The dictionary maps chain IDs to dictionaries of interactions, where each interaction specifies the interacting residue numbers and type of interaction (e.g. ion, ligand, other chain).
+
+### Examples
+
+```python
+>>> from Bio import PDB
+>>> structure = PDB.PDBParser().get_structure("struc", "3OCP.ent")
+>>> interactions = extract_interactions(structure)
+>>> print(interactions)
+{'A': {'chain B': [[307, 308], [363, 364]], 'Mg': [[15], [36]]}}
+```
+
+## parse_folder
+
+```python
+parse_folder(input_folder: str)
+```
+
+Take a folder string and ensure it is formatted correctly. Creates missing folders if they don't exist.
+
+### Parameters
+
+**input_folder** : str  
+    The folder path to parse and validate.
+
+### Returns
+
+**str**  
+    The normalized folder path with forward slashes and trailing slash.
+
+### Examples
+
+```python
+>>> parse_folder("data/structures")
+'data/structures/'
+```
+
+## is_amino_acid
+
+```python
+is_amino_acid(residue)
+```
+
+Check if a residue is an amino acid.
+
+### Parameters
+
+**residue** : Bio.PDB.Residue  
+    The residue to check.
+
+### Returns
+
+**bool**  
+    True if the residue is an amino acid, False otherwise.
+
+## combine_range
+
+```python
+combine_range(input: list)
+```
+
+Take in a series of numbers and output a list of lists where adjacent numbers have been combined.
+
+### Parameters
+
+**input** : list  
+    List of numbers to combine.
+
+### Returns
+
+**list**  
+    List of lists where each inner list contains a range of consecutive numbers.
+
+### Examples
+
+```python
+>>> combine_range([1, 2, 3, 5, 6, 8])
+[[1, 3], [5, 6], [8]]
+```
+
