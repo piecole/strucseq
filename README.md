@@ -623,7 +623,7 @@ Extract sequences from each chain in a protein structure.
 ## extract_interactions
 
 ```python
-extract_interactions(structure, max_distance=4, strict=True, max_residues=None, debug=False)
+extract_interactions(structure, max_distance=4, strict=True, debug=False)
 ```
 
 Iterate through the chains in a structure and extract regions that interact with ions, ligands, and other chains in the structure.
@@ -638,9 +638,6 @@ Iterate through the chains in a structure and extract regions that interact with
 
 **strict** : bool, optional  
     Whether to raise an exception if no interactions are found. If False then if no interactions are found will return an empty dictionary. The default is True.
-
-**max_residues** : int, optional  
-    Maximum number of residues to check. If there are more residues than this in the structure then will return an empty dictionary. This is useful for ignoring large structures that will slow down a screen. The default is None.
 
 **debug** : bool, optional  
     Whether to print debug information. The default is False.
