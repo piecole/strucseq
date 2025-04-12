@@ -652,7 +652,6 @@ Iterate through the chains in a structure and extract regions that interact with
 ```python
 >>> from Bio import PDB
 >>> structure = PDB.PDBParser().get_structure("struc", "3OCP.ent")
->>> interactions = extract_interactions(structure)
->>> print(interactions)
+>>> extract_interactions(structure)
 {'A': {'chain B': [[307, 308], [363, 364]], 'Mg': [[15], [36]]}}
 ```
