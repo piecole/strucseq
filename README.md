@@ -428,7 +428,7 @@ Uniprot ID aged	Gene symbol aged	Site aged	ModScore aged	Motif aged	BAT aged	Bra
 
 ## get_CIF_structure
 ```python
-get_CIF_structure(pdb_id : str, folder : str = "structures", strict = False, debug = False)
+get_CIF_structure(pdb_id : str, folder : str = "structures", strict = True, debug = False)
 ```
 Downloads a CIF protein structure from the PDB for a given PDB ID. This should be used 
 instead of previous get_PDB_structure()
@@ -442,7 +442,7 @@ instead of previous get_PDB_structure()
     Folder to save the structure to. The default is "structures".
 
 **strict** : bool, optional  
-    Whether to raise an exception if the structure is not found. The default is False.
+    Whether to raise an exception if the structure is not found. The default is True.
 
 **debug** : bool, optional  
     Whether to print messages as it goes. The default is False.

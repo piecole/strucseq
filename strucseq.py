@@ -1658,7 +1658,7 @@ def get_PDB_structure(pdb_id : str,
 
 def get_CIF_structure(pdb_id : str,
                       folder : str = "structures",
-                      strict = False,
+                      strict = True,
                       debug = False):
     """
     Downloads a CIF structure from the PDB for a given PDB ID.
@@ -1670,7 +1670,7 @@ def get_CIF_structure(pdb_id : str,
     folder : str, optional
         Folder to save the structure to. The default is "structures".
     strict : bool, optional
-        Whether to raise an exception if the structure is not found. The default is False.
+        Whether to raise an exception if the structure is not found. The default is True.
     debug : bool, optional
         Whether to print messages as it goes. The default is False.
     Returns
