@@ -846,7 +846,7 @@ def get_flanking_info(PDB_file : str,
     cysteine_list = []
     with gzip.open(PDB_file.encode("unicode_escape"), "rt") as unzipped: #open the structure
         try:
-            structure = PDBParser(QUIET=debug).get_structure("struc", unzipped) #parse the structure
+            structure = PDBParser(QUIET = not debug).get_structure("struc", unzipped) #parse the structure
         except OSError:
             raise Exception(f"Failed to parse structure from '{PDB_file}'.")
         
@@ -1629,6 +1629,9 @@ def get_PDB_structure(pdb_id : str,
     -------
     None.
     """
+
+    print("WARNING: This function is depreciated as new structures are in CIF format. Use get_CIF_structure() instead.")
+
     folder = parse_folder(folder)
     # Check whether the structure exists
     if os.path.exists(folder + pdb_id + "." + extension):
@@ -1652,6 +1655,53 @@ def get_PDB_structure(pdb_id : str,
             return
     else:
         raise RuntimeError(f"Unexpected error code '{data.status_code}' for PDB structure for {pdb_id}.")
+
+def get_CIF_structure(pdb_id : str,
+                      folder : str = "structures",
+                      strict = False,
+                      debug = False):
+    """
+    Downloads a CIF structure from the PDB for a given PDB ID.
+
+    Parameters
+    ----------
+    pdb_id : str
+        PDB ID of the structure to download.
+    folder : str, optional
+        Folder to save the structure to. The default is "structures".
+    strict : bool, optional
+        Whether to raise an exception if the structure is not found. The default is False.
+    debug : bool, optional
+        Whether to print messages as it goes. The default is False.
+    Returns
+    -------
+    None.
+    """
+
+    folder = parse_folder(folder)
+    # Check whether the structure exists
+    if os.path.exists(folder + pdb_id + ".cif"):
+        if debug:
+            print("Already have structure for " + pdb_id + ".")
+        return
+    # Get the structure
+    if debug:
+        print("Downloading structure for " + pdb_id + " from PDB.")
+    url = "https://files.rcsb.org/download/" + pdb_id + ".cif"
+    data = requests.get(url, allow_redirects=True)
+    # Make sure that response was 200
+    if data.status_code == 200:
+        open(folder + pdb_id + ".cif", 'wb').write(data.content)
+    elif data.status_code == 404:
+        if strict:
+            raise FileNotFoundError("PDB structure for " + pdb_id + " not found.")
+        else:
+            if debug:
+                print(f"PDB structure for '{pdb_id}' not found.")
+            return
+    else:
+        raise RuntimeError(f"Unexpected error code '{data.status_code}' for PDB structure for {pdb_id}.")
+
 
 import propka.run as pk
 
