@@ -1608,6 +1608,7 @@ def PDBsearch(query : str) -> list:
 def get_PDB_structure(pdb_id : str,
                       folder : str = "structures",
                       extension = "ent",
+                      strict = False,
                       debug = False):
     """
     Downloads a structure from the PDB for a given PDB ID.
@@ -1639,7 +1640,18 @@ def get_PDB_structure(pdb_id : str,
         print("Downloading structure for " + pdb_id + " from PDB.")
     url = "https://files.rcsb.org/download/" + pdb_id + ".pdb"
     data = requests.get(url, allow_redirects=True)
-    open(folder + pdb_id + "." + extension, 'wb').write(data.content)
+    # Make sure that response was 200
+    if data.status_code == 200:
+        open(folder + pdb_id + "." + extension, 'wb').write(data.content)
+    elif data.status_code == 404:
+        if strict:
+            raise FileNotFoundError("PDB structure for " + pdb_id + " not found.")
+        else:
+            if debug:
+                print(f"PDB structure for '{pdb_id}' not found.")
+            return
+    else:
+        raise RuntimeError(f"Unexpected error code '{data.status_code}' for PDB structure for {pdb_id}.")
 
 import propka.run as pk
 
