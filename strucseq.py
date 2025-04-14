@@ -1704,42 +1704,72 @@ def get_CIF_structure(pdb_id : str,
     else:
         raise RuntimeError(f"Unexpected error code '{data.status_code}' for PDB structure for {pdb_id}.")
     
-async def async_download_structure(structure: str, semaphore: asyncio.Semaphore, folder: str = "structures", debug: bool = False):
+async def async_download_structure(structure: str, semaphore: asyncio.Semaphore, folder: str = "structures", debug: bool = False, max_retries: int = 3):
+    """
+    Asynchronously download a single structure with retry logic.
+    
+    Args:
+        structure: Structure ID to download
+        semaphore: Semaphore for rate limiting
+        folder: Folder to save the structure to
+        debug: Whether to print debug messages
+        max_retries: Maximum number of retry attempts
+    """
     async with semaphore:
-        worked = False
-        while not worked:
+        retries = 0
+        while retries < max_retries:
             try:
-                try:
-                    await asyncio.to_thread(get_CIF_structure, structure, strict=True)
-                except FileNotFoundError:  # 404 error sometimes occurs even though the file exists
-                    print("One 404 error, retrying...")
-                    await asyncio.to_thread(get_CIF_structure, structure, folder = folder, strict=True, debug = debug)
-                worked = True
+                await asyncio.to_thread(get_CIF_structure, structure, folder=folder, strict=True, debug=debug)
+                return  # Success
+            except FileNotFoundError:
+                print(f"Structure {structure} not found (404)")
+                raise  # Don't retry on 404s
             except TimeoutError:
-                print("Timeout error, retrying...")
-                await asyncio.sleep(10)
+                retries += 1
+                if retries == max_retries:
+                    print(f"Failed to download {structure} after {max_retries} attempts")
+                    raise
+                print(f"Timeout downloading {structure}, retry {retries}/{max_retries}...")
+                await asyncio.sleep(10 * retries)  # Exponential backoff
+            except Exception as e:
+                print(f"Unexpected error downloading {structure}: {str(e)}")
+                raise
 
 async def async_download_structures(structures: list, max_concurrent: int = 5, folder: str = "structures", debug: bool = False):
     """
     Asynchronously download multiple structures with rate limiting.
+    Failed downloads will raise exceptions.
     
     Args:
         structures: List of structure IDs to download
-        max_concurrent: Maximum number of concurrent downloads (default: 5)
-        folder: Folder to save the structure to. The default is "structures".
-        debug: Whether to print messages as it goes. The default is False.
+        max_concurrent: Maximum number of concurrent downloads
+        folder: Folder to save structures to
+        debug: Whether to print debug messages
     """
     semaphore = asyncio.Semaphore(max_concurrent)
-    tasks = [async_download_structure(structure, semaphore, folder = folder, debug = debug) for structure in structures]
+    tasks = [async_download_structure(structure, semaphore, folder=folder, debug=debug) 
+             for structure in structures]
+    
+    results = {"succeeded": [], "failed": []}
     
     with tqdm(total=len(structures), desc="Downloading structures", position=0) as pbar:
-        for coro in asyncio.as_completed(tasks):
-            await coro
-            pbar.update(1)
+        for structure, task in zip(structures, asyncio.as_completed(tasks)):
+            try:
+                await task
+                results["succeeded"].append(structure)
+            except Exception as e:
+                results["failed"].append((structure, str(e)))
+            finally:
+                pbar.update(1)
+    
+    if results["failed"]:
+        failed_str = "\n".join(f"{s}: {e}" for s, e in results["failed"])
+        raise RuntimeError(f"Failed to download {len(results['failed'])} structures:\n{failed_str}")
 
 def download_structures(structures: list, max_concurrent: int = 5, folder: str = "structures", debug: bool = False):
     """
     Download multiple structures concurrently.
+    Failed downloads will raise exceptions.
 
     Parameters
     ----------
@@ -1747,8 +1777,12 @@ def download_structures(structures: list, max_concurrent: int = 5, folder: str =
         List of structure IDs to download
     max_concurrent : int, optional
         Maximum number of concurrent downloads (default: 5)
+    folder : str, optional
+        Folder to save structures to
+    debug : bool, optional
+        Whether to print debug messages
     """
-    asyncio.run(async_download_structures(structures, max_concurrent = max_concurrent, folder = folder, debug = debug))
+    asyncio.run(async_download_structures(structures, max_concurrent=max_concurrent, folder=folder, debug=debug))
 
 import propka.run as pk
 
