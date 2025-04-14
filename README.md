@@ -653,3 +653,37 @@ Iterate through the chains in a structure and extract regions that interact with
 >>> extract_interactions(structure)
 {'A': {'chain B': [[307, 308], [363, 364]], 'Mg': [[15], [36]]}}
 ```
+
+## download_structures
+
+```python
+download_structures(structures: list, max_concurrent: int = 5, folder: str = "structures", debug: bool = False)
+```
+
+Concurrently download multiple protein structures from the PDB.
+
+### Parameters
+
+**structures** : list  
+    List of structure IDs (PDB codes) to download.
+
+**max_concurrent** : int, optional  
+    Maximum number of concurrent downloads. Default is 5.
+
+**folder** : str, optional  
+    Directory where structures will be saved. Default is "structures".
+
+**debug** : bool, optional  
+    Whether to print debug information. Default is False.
+
+### Returns
+
+None  
+    Structures are downloaded and saved to the specified folder.
+
+### Examples
+
+```python
+>>> download_structures(["1ABC", "2DEF", "3GHI"])
+# Downloads these three structures concurrently to the "structures" folder
+```

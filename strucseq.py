@@ -16,6 +16,8 @@ from Bio.PDB import *
 from Bio.Blast import NCBIWWW
 from Bio.Blast import NCBIXML
 from Bio.PDB.NeighborSearch import NeighborSearch
+import asyncio
+from functools import wraps
 
 try:
     import propka.run as pk
@@ -1701,7 +1703,52 @@ def get_CIF_structure(pdb_id : str,
             return
     else:
         raise RuntimeError(f"Unexpected error code '{data.status_code}' for PDB structure for {pdb_id}.")
+    
+async def async_download_structure(structure: str, semaphore: asyncio.Semaphore, folder: str = "structures", debug: bool = False):
+    async with semaphore:
+        worked = False
+        while not worked:
+            try:
+                try:
+                    await asyncio.to_thread(get_CIF_structure, structure, strict=True)
+                except FileNotFoundError:  # 404 error sometimes occurs even though the file exists
+                    print("One 404 error, retrying...")
+                    await asyncio.to_thread(get_CIF_structure, structure, folder = folder, strict=True, debug = debug)
+                worked = True
+            except TimeoutError:
+                print("Timeout error, retrying...")
+                await asyncio.sleep(10)
 
+async def async_download_structures(structures: list, max_concurrent: int = 5, folder: str = "structures", debug: bool = False):
+    """
+    Asynchronously download multiple structures with rate limiting.
+    
+    Args:
+        structures: List of structure IDs to download
+        max_concurrent: Maximum number of concurrent downloads (default: 5)
+        folder: Folder to save the structure to. The default is "structures".
+        debug: Whether to print messages as it goes. The default is False.
+    """
+    semaphore = asyncio.Semaphore(max_concurrent)
+    tasks = [async_download_structure(structure, semaphore, folder = folder, debug = debug) for structure in structures]
+    
+    with tqdm(total=len(structures), desc="Downloading structures", position=0) as pbar:
+        for coro in asyncio.as_completed(tasks):
+            await coro
+            pbar.update(1)
+
+def download_structures(structures: list, max_concurrent: int = 5, folder: str = "structures", debug: bool = False):
+    """
+    Download multiple structures concurrently.
+
+    Parameters
+    ----------
+    structures : list
+        List of structure IDs to download
+    max_concurrent : int, optional
+        Maximum number of concurrent downloads (default: 5)
+    """
+    asyncio.run(async_download_structures(structures, max_concurrent = max_concurrent, folder = folder, debug = debug))
 
 import propka.run as pk
 
