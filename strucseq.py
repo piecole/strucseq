@@ -1836,11 +1836,11 @@ def run_propka(input_file,
     propka_path = propka_folder + "pdb" + input_file + ".pka"
     # Check if the propka file exists
     if os.path.exists(propka_path) and check:
-        if silence == False:
-            print(propka_path + f" already exists at {propka_path}. If you want to recompute it, set check = False.")
+        if not silence:
+            print(f"{propka_path} already exists. If you want to recompute it, set check = False.")
         return
     else:
-        if silence == False:
+        if not silence:
             print("Going to comput propka for " + input_file + ".")
         structure_folder = parse_folder(structure_folder)
         paths = glob.glob(structure_folder + "/**/" + input_file + "*.*" + structure_extension + "*", recursive = True)
@@ -1849,7 +1849,7 @@ def run_propka(input_file,
             return
         path = paths[0]
 
-        if silence == False:
+        if not silence:
             print("Calculating pKas with PROPKA and saving to file. Please cite:")
             print("Improved Treatment of Ligands and Coupling Effects in Empirical Calculation and Rationalization of pKa Values. Chresten R. Søndergaard, Mats H. M. Olsson, Michał Rostkowski, and Jan H. Jensen. Journal of Chemical Theory and Computation 2011 7 (7), 2284-2295. DOI: 10.1021/ct200133y")
 
@@ -1881,13 +1881,12 @@ def readpropka(filepath): #reads a propka file, saving the cysteines
             pkadatareader = csv.reader(thisFile, delimiter = " ")
             pkadata = []
             for pkaline in pkadatareader:
-                while '' in pkaline:
-                    pkaline.remove('')
+                pkaline = [entry for entry in pkaline if entry != '']
                 pkadata.append(pkaline)
     except:
         print(filepath, "not found")
 
-    if found == True:
+    if found:
         # Save the cysteine rows as a list
         # Previously didn't work with 4-digit residue numbers or more, so changed it.
         cysteines = [i for i in [a for a in pkadata if len(a) > 5] if i[0][0:3] == "CYS"]
@@ -1952,8 +1951,7 @@ def readpropka_better(filepath = None):
         with open(filepath, mode = "r") as thisFile:
             pkadatareader = csv.reader(thisFile, delimiter = " ")
             for pkaline in pkadatareader:
-                while '' in pkaline:
-                    pkaline.remove('')
+                pkaline = [entry for entry in pkaline if entry != '']
                 pkadata.append(pkaline)
             found = True
     except:
