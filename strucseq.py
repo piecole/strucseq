@@ -168,7 +168,7 @@ def iterate_uniprot_accessions_OLD(in_csv : str,
         The max index for fetching, usually for testing. The default is 10000000000000.
     debug : bool, optional
         Whether to print progess or other notifications
-        
+
     THIS FUNCTION IS TOO SPECIFIC TO ReDisulphID WRITTING NEW VERSION NEXT
 
     """
@@ -286,7 +286,7 @@ def iterate_uniprot_accessions(in_csv : str,
                                   new_df], ignore_index = True).reset_index(drop = True).drop_duplicates()
 
     uniquePDBs = uniquechains["PDBid"].drop_duplicates().reset_index(drop = True)
-    
+
     uniprotpd = pd.DataFrame({"PDB" : [], "chain": [], "uniprot": []})
     e = 0
 
@@ -313,7 +313,7 @@ def iterate_uniprot_accessions(in_csv : str,
 
         for letter in chaindetails: #   Iterate each letter in the dictionary
             #   Create a new row with the ID, chain letter, and uniprot code
-            uniprotpd.loc[e] = [PDBcode, letter, chaindetails[letter]] 
+            uniprotpd.loc[e] = [PDBcode, letter, chaindetails[letter]]
             e = e + 1
 
 
@@ -327,8 +327,8 @@ def iterate_uniprot_accessions(in_csv : str,
 
 def get_uniprot_details(unicode : str, debug = False) -> dict:
     """
-    
-    When given a uniprot code, will return a dictionary containing details from 
+
+    When given a uniprot code, will return a dictionary containing details from
     the uniprot website.
 
     Parameters
@@ -379,19 +379,19 @@ def get_uniprot_details(unicode : str, debug = False) -> dict:
         print("Failed to fetch uniprot data repeatedly.")
         soup = BeautifulSoup(requests.get(url).text, "lxml")
 
-    
+
     #   Get the protein name.
     try:
         output["uniprot name"] = soup.find_all("fullname")[0].text
     except IndexError:
         output["uniprot name"] = np.nan
-    
+
     #   Get the uniprot abbreviation.
     try:
         output["uniprot abbreviation"] = soup.find_all("name")[0].text
     except IndexError:
         output["uniprot abbreviation"] = np.nan
-    
+
     try:
         #   Search for the list of localisations and then put each one in a list
         localisations = [x.text for x in soup.find("comment",
@@ -401,14 +401,14 @@ def get_uniprot_details(unicode : str, debug = False) -> dict:
     except:
         #   If there is no such localisation
         output["localisations"] = np.nan
-    
+
     #   Get the first description
     try:
         output["description"] = soup.find("title").text
     except:
         #   If no description found.
         output["description"] = np.nan
-        
+
     #   Get disease variants
     variants = {}
     for variant in soup.find_all("feature", {"type":"sequence variant"}):
@@ -432,7 +432,7 @@ def get_uniprot_details(unicode : str, debug = False) -> dict:
             #   Multi point changes
             variants[len(variants), variant["description"]] = {"original residue" : variant.find("original").text, "variation residue" : variant.find("variation").text, "begin" : variant.find("location").find("begin")["position"], "end" : variant.find("location").find("end")["position"]}
     output["variants"] = variants
-    
+
     #   Get functional mutations (features)
     mutations = {}
     for mutation in soup.find_all("feature", {"type":"mutagenesis site"}):
@@ -452,13 +452,13 @@ def get_uniprot_details(unicode : str, debug = False) -> dict:
             #   Sequence variants
             mutations[len(mutations), mutation["description"]] = {"begin" : mutation.find("location").find("begin")["position"], "end" : mutation.find("location").find("end")["position"]}
     output["functional mutations"] = mutations
-    
+
     #   Get modified residues
     modifications = {}
     for modification in soup.find_all("feature", {"type" : "modified residue"}):
         modifications[len(modifications), modification["description"]] = {"position" : modification.find("location").find("position")["position"]}
     output["modifications"] = modifications
-            
+
     #   Get functional sites/region of interest
     regions = {}
     for region in soup.find_all("feature", {"type":["region of interest", "short sequence motif"]}):
@@ -474,7 +474,7 @@ def get_uniprot_details(unicode : str, debug = False) -> dict:
                     region.find(location)["position"] = region.find(location)["status"]
             regions[len(regions),region["description"]] = {"begin" : region.find("location").find("begin")["position"], "end" : region.find("location").find("end")["position"]}
     output["regions"] = regions
-        
+
     #   Get family & domains
     domains = {}
     for domain in soup.find_all("feature", {"type":"domain"}):
@@ -485,7 +485,7 @@ def get_uniprot_details(unicode : str, debug = False) -> dict:
             #   Multi residue domain
             domains[len(domains), domain["description"]] = {"begin" : domain.find("location").find("begin")["position"], "end" : domain.find("location").find("end")["position"]}
     output["domains"] = domains
-    
+
     #   Active site
     active_sites = {}
     for active_site in soup.find_all("feature", {"type":["active site"]}):
@@ -495,9 +495,9 @@ def get_uniprot_details(unicode : str, debug = False) -> dict:
             active_site["description"] = "none"
 
         active_sites[len(active_sites),active_site["description"]] = {"position" : active_site.find("location").find("position")["position"]}
-            
+
     output["active sites"] = active_sites
-    
+
     #   Binding site
     binding_sites = {}
     for binding_site in soup.find_all("feature", {"type" : ["binding site"]}):
@@ -512,21 +512,21 @@ def get_uniprot_details(unicode : str, debug = False) -> dict:
                 binding_sites[len(binding_sites),binding_site.find("ligand").find("name").text] = {"begin" : binding_site.find("location").find("begin")["position"], "end" : binding_site.find("location").find("end")["position"]}
         except:
             pass
-            
+
     output["binding sites"] = binding_sites
-    
-    
+
+
     #   Default mammalian to 0
     output["mammalian"] = 0
     #   Find all taxons and convert them to a list, then check if one of them is mammalian
     if "Mammalia"  in [x.text for x in soup.find_all("taxon")]:
         output["mammalian"] = 1
-    
+
     #   Get all the terms where processes are mixed up with component and molecular function
     processes = [x.get("value") for x in soup.find_all("property", {"type" : "term"})]
     #   Strip out only the processes
     output["function"] = [x.split(":")[1] for x in processes if "P:" in x]
-     
+
     if debug:
         for i in output:
             print(i, output[i])
@@ -541,17 +541,17 @@ def iterate_uniprot_details_OLD(in_csv : str, out_csv : str, uniprot_csv : str =
     Parameters
     ----------
     in_csv : str
-        The filepath to an input CSV, which must contain columns "uniprot a" and 
+        The filepath to an input CSV, which must contain columns "uniprot a" and
         "uniprot b".
     out_csv : str
         The intended filepath of the output CSV.
     uniprot_csv : str, optional
-        If a uniprot CSV is then specified use that. The default is None, in which 
+        If a uniprot CSV is then specified use that. The default is None, in which
         case a column in the input CSV can be used. NEEDS CONFIRMATION
     species : str, optional
-        Can specify a species if there is a species-specific column of uniprots 
+        Can specify a species if there is a species-specific column of uniprots
         that should be used for fetching data. The default is None.
-        If a species is specified then it will look in that column for the uniprot 
+        If a species is specified then it will look in that column for the uniprot
         accession, rather than fetching the uniprot accession from the separate CSV.
     debug : str, optional
         Whether to print progess.
@@ -559,21 +559,21 @@ def iterate_uniprot_details_OLD(in_csv : str, out_csv : str, uniprot_csv : str =
     Returns
     -------
     A CSV file of the input database populated with protein information from uniprot.
-    
+
     New columns will be the species, then "a chain", or "b chain" followed by:
         'uniprot name', 'uniprot abbreviation', 'localisations', 'description', 'variants',
-        'functional mutations', 'modifications', 'regions', 'domains', 'active sites', 
+        'functional mutations', 'modifications', 'regions', 'domains', 'active sites',
         'binding sites', 'mammalian', and 'function'.
-        
+
     THIS FUNCTION IS TOO SPECIFIC TO ReDisulphID
 
     """
-    
+
     #   Converts the screen product and uniprot csvs to pandas dataframes
     data = pd.read_csv(in_csv, delimiter = "\t")
     if uniprot_csv != None:
         uniprotdata = pd.read_csv(uniprot_csv, delimiter = "\t")
-    
+
     chains = ["a", "b"]
     #   Combines the known uniprot accessions into the screen product dataframe
     for chain in chains: #  Adds the uniprot based on on 'a chain' then 'b chain'
@@ -582,12 +582,12 @@ def iterate_uniprot_details_OLD(in_csv : str, out_csv : str, uniprot_csv : str =
             data = data.drop(["PDB", "chain"], axis = 1) #  Removes the added PDB code and chain since this information is duplicate
             if species is None:
                 #   Renames the new 'chain' column to specify a or b
-                data = data.rename(columns = {"uniprot" : "uniprot " + chain}) #    
+                data = data.rename(columns = {"uniprot" : "uniprot " + chain}) #
             else:
                 data = data.rename(columns = {"uniprot" : chain + " " + species + " accession code"})
-    
+
     data = data.loc[:,~data.columns.duplicated()].copy()
-    
+
     #if a species is specified, then look in that column for the accession code otherwise look in default column
     accession_columns = ["a", "b"]
     if species is None:
@@ -597,7 +597,7 @@ def iterate_uniprot_details_OLD(in_csv : str, out_csv : str, uniprot_csv : str =
             accession_columns = [x + " " + species + " accession code" for x in chains]
         except:
             raise Exception("Expected species as string, got " + repr(species))
-    
+
     #accesses the internet using the new uniprots to get uniprot data using get_uniprot_details()
     #creates a new series of unique uniprot codes
 
@@ -608,24 +608,24 @@ def iterate_uniprot_details_OLD(in_csv : str, out_csv : str, uniprot_csv : str =
     uniqueuniprots = uniqueuniprots.dropna() #drops any empty enties
     #drops entries that say "no accession code" (which were returned before when they couldn't be found)
     uniqueuniprots = uniqueuniprots[uniqueuniprots["uniprot"] != "no accession code"]
-    
-    #creates a test data row based on XRCC4 so we know what the columns are called   
+
+    #creates a test data row based on XRCC4 so we know what the columns are called
     testset = get_uniprot_details("Q13426")
     testset["uniprot"] = "Q13426"
     dataset = pd.DataFrame(columns = testset.keys()) #creates a new empty dataframe with those columns
-    
+
     #iterates through the uniprots and gets the extra information from the internet added to the new dataset dataframe
     dex = 0
     for index, row in tqdm(uniqueuniprots.iterrows(), total = uniqueuniprots.shape[0]): #iterates through the unique uniprots
         #print(dex, "/", uniqueuniprots.size) #indicates the progress
         dex = dex + 1
-        
+
         if len(row["uniprot"]) > 4: # Check the uniprot code is valid
             # Get uniprot information as a dictionary
             newinfo = get_uniprot_details(row["uniprot"])
             # Add the uniprot accession code to that dictionary
             newinfo["uniprot"] = row["uniprot"]
-            # Create a 1 row dataframe of that dictionary, with the keys as the columns 
+            # Create a 1 row dataframe of that dictionary, with the keys as the columns
             for i in newinfo:
                 print(f"{i}: {newinfo[i]}")
             newinfo = pd.DataFrame([newinfo],  columns = newinfo.keys())
@@ -634,25 +634,25 @@ def iterate_uniprot_details_OLD(in_csv : str, out_csv : str, uniprot_csv : str =
         else:
             if debug:
                 print("not a uniprot accession:", row["uniprot"])
-            
-            
+
+
     #convert species column into dictionary for better access
     accession_columns = {"a chain": accession_columns[0], "b chain" : accession_columns[1]}
     if species is None: #convert the species into text that can be used to name columns
         species = ""
     else:
         species = species + " "
-    
+
     #from the uniprots given by each chain, adds the information from the unique uniprot list to the screen data
 
     for chain in ["a chain", "b chain"]: #iterate between the two chains
         data = pd.merge(data, dataset, how="left", left_on=[accession_columns[chain]], right_on=["uniprot"]).reset_index(drop = True) #merges the uniprot data to the screen based on the chain uniprots
         data = data.drop(["uniprot"], axis = 1) #drop the new uniprot column since it is a duplicate
         data = data.rename(columns = dict(zip(newinfo.keys(), species + chain + " " + newinfo.keys()))) #renames the new columns to specify their chains
-    
-    #save all this as a new CSV 
+
+    #save all this as a new CSV
     data.to_csv(out_csv, sep="\t", index = False)
-    
+
 def iterate_uniprot_details(in_csv : str,
                             chain_cols : list,
                             out_csv : str,
@@ -667,10 +667,10 @@ def iterate_uniprot_details(in_csv : str,
     Parameters
     ----------
     in_csv : str
-        The filepath to an input CSV, which must contain columns "uniprot a" and 
+        The filepath to an input CSV, which must contain columns "uniprot a" and
         "uniprot b".
     chain_cols : list or str
-        String or list of strings specifying which column to get the identity of the 
+        String or list of strings specifying which column to get the identity of the
         peptide chain from.
         E.g. ["a chain", "b chain"]
     out_csv : str
@@ -678,12 +678,12 @@ def iterate_uniprot_details(in_csv : str,
     delimiter : str, optional
         Delimiter that is used in the input CSV, and should be used in the output CSV.
     uniprot_csv : str, optional
-        If a uniprot CSV is then specified use that. The default is None, in which 
+        If a uniprot CSV is then specified use that. The default is None, in which
         case a column in the input CSV can be used. NEEDS CONFIRMATION
     species : str, optional
-        Can specify a species if there is a species-specific column of uniprots 
+        Can specify a species if there is a species-specific column of uniprots
         that should be used for fetching data. The default is None.
-        If a species is specified then it will look in that column for the uniprot 
+        If a species is specified then it will look in that column for the uniprot
         accession, rather than fetching the uniprot accession from the separate CSV.
     debug : str, optional
         Whether to print progess.
@@ -691,12 +691,12 @@ def iterate_uniprot_details(in_csv : str,
     Returns
     -------
     A CSV file of the input database populated with protein information from uniprot.
-    
+
     New columns will be the species, then specified chain columns followed by:
         'uniprot name', 'uniprot abbreviation', 'localisations', 'description', 'variants',
-        'functional mutations', 'modifications', 'regions', 'domains', 'active sites', 
+        'functional mutations', 'modifications', 'regions', 'domains', 'active sites',
         'binding sites', 'mammalian', and 'function'.
-        
+
     EDITING TO BE NON SPECIFIC
     NEED TO TEST AND FIX THIS WITH pd.DataFrame input
 
@@ -707,11 +707,11 @@ def iterate_uniprot_details(in_csv : str,
         data = pd.read_csv(in_csv, delimiter = delimiter)
     if isinstance(uniprot_csv, str):
         uniprot_csv = pd.read_csv(uniprot_csv, delimiter = delimiter)
-        
+
     #   Parse chain_cols
     if isinstance(chain_cols, str):
         chain_cols = [chain_cols]
-    
+
     #   Combines the known uniprot accessions into the screen product dataframe
     for chain_col in chain_cols: #  Adds the uniprot based on on 'a chain' then 'b chain'
         if uniprot_csv is not None: #   If uniprot_csv was specified, then add this to the dataframe
@@ -719,14 +719,14 @@ def iterate_uniprot_details(in_csv : str,
             data = data.drop(["PDB", "chain"], axis = 1) #  Removes the added PDB code and chain since this information is duplicate
             if species is None:
                 #Renames the new 'chain' column to specify the chain
-                data = data.rename(columns = {"uniprot" : "uniprot " + chain_col}) #    
+                data = data.rename(columns = {"uniprot" : "uniprot " + chain_col}) #
             else:
                 data = data.rename(columns = {"uniprot" : chain_col + " " + species + " accession code"})
-    
+
     # Copy to a new DataFrame that includes only the non-duplicated
     # columns from the original DataFrame.
     data = data.loc[:,~data.columns.duplicated()].copy()
-    
+
     # If a species is specified, then look in that column for the accession
     # code, otherwise look in default column defined by the species.
     accession_columns = ["a", "b"]
@@ -735,10 +735,10 @@ def iterate_uniprot_details(in_csv : str,
     else:
         assert isinstance(species, str), "Expected species as string, found " + repr(species)
         accession_columns = [x + " " + species + " accession code" for x in accession_columns]
-    
+
     #accesses the internet using the new uniprots to get uniprot data using get_uniprot_details()
     #creates a new series of unique uniprot codes
-            
+
     uniqueuniprots = pd.concat([data["uniprot a"], data["uniprot b"]],
                                ignore_index = True).reset_index(drop = True).drop_duplicates()
     uniqueuniprots = pd.DataFrame(uniqueuniprots) #turns this series into a 1 column dataframe
@@ -746,12 +746,12 @@ def iterate_uniprot_details(in_csv : str,
     uniqueuniprots = uniqueuniprots.dropna() #drops any empty enties
     #drops entries that say "no accession code" (which were returned before when they couldn't be found)
     uniqueuniprots = uniqueuniprots[uniqueuniprots["uniprot"] != "no accession code"]
-    
-    #creates a test data row based on XRCC4 so we know what the columns are called   
+
+    #creates a test data row based on XRCC4 so we know what the columns are called
     testset = get_uniprot_details("Q13426")
     testset["uniprot"] = "Q13426"
     dataset = pd.DataFrame(columns = testset.keys()) #creates a new empty dataframe with those columns
-    
+
     # Iterates through the uniprots and gets the extra information from
     # the internet added to the new dataset dataframe
     dex = 0
@@ -760,32 +760,32 @@ def iterate_uniprot_details(in_csv : str,
                            desc = "Iterating through uniprot site for uniprot details."): #iterates through the unique uniprots
         #print(dex, "/", uniqueuniprots.size) #indicates the progress
         dex = dex + 1
-        
+
         if len(row["uniprot"]) > 4:
             newinfo = get_uniprot_details(row["uniprot"]) #gets uniprot information as a dictionary
             newinfo["uniprot"] = row["uniprot"] #adds the uniprot accession code to that dictionary
-            #creates a 1 row dataframe of that dictionary, with the keys as the columns 
+            #creates a 1 row dataframe of that dictionary, with the keys as the columns
             newinfo = pd.DataFrame([newinfo],  columns = newinfo.keys())
             dataset = pd.concat([dataset, newinfo], ignore_index = True) # adds 1 row to the dataset dataframe
         else:
             if debug:
                 print("not a uniprot accession:", row["uniprot"])
-            
-            
+
+
     #convert species column into dictionary for better access
     accession_columns = {"a chain": accession_columns[0], "b chain" : accession_columns[1]}
     if species is None: #convert the species into text that can be used to name columns
         species = ""
     else:
         species = species + " "
-    
+
     #from the uniprots given by each chain, adds the information from the unique uniprot list to the screen data
 
     for chain in ["a chain", "b chain"]: #iterate between the two chains
         data = pd.merge(data, dataset, how="left", left_on=[accession_columns[chain]], right_on=["uniprot"]).reset_index(drop = True) #merges the uniprot data to the screen based on the chain uniprots
         data = data.drop(["uniprot"], axis = 1) #drop the new uniprot column since it is a duplicate
         data = data.rename(columns = dict(zip(newinfo.keys(), species + chain + " " + newinfo.keys()))) #renames the new columns to specify their chains
-    
+
     #save all this as a new CSV
     data.to_csv(out_csv, sep="\t", index = False)
 
@@ -795,7 +795,7 @@ def extract_chain_sequences_from_structure(structure: Structure):
         # Skip empty chains
         if not chain:
             continue
-            
+
         # Get max residue number once
         length = max(res.id[1] for res in chain)
         if length <= 0:
@@ -803,17 +803,17 @@ def extract_chain_sequences_from_structure(structure: Structure):
 
         # Pre-allocate list with correct size
         res_list = ['!'] * length
-        
+
         # Process only non-water residues
         for residue in chain:
             pos = residue.id[1] - 1
             if pos < 0:
                 continue
-                
+
             resname = residue.get_resname()
             if resname == 'HOH':
                 continue
-                
+
             try:
                 res_list[pos] = threetoone.get(resname, '!')
             except IndexError:
@@ -827,7 +827,7 @@ def get_flanking_info(PDB_file : str,
                       amino_acid : str,
                       debug : bool = False) -> tuple:
     """
-        
+
     Takes a PDB file and returns flanking information for all the cysteines and also returns the real sequences of each chain.
 
     Parameters
@@ -842,23 +842,23 @@ def get_flanking_info(PDB_file : str,
     Returns
     -------
     tuple
-        [0]: Dataframe with information about flanking residues including sequence, pKas, hydrophobicities, 
+        [0]: Dataframe with information about flanking residues including sequence, pKas, hydrophobicities,
         and charges at pH 7.
-        
+
         [1]: Sequences of the chains in the structure.
-        
+
     """
     #catch input errors
     assert isinstance(PDB_file, str), "str expected for PDB_file, found '" + repr(PDB_file) + "' which is " + repr(type(PDB_file))
     assert isinstance(debug, bool), "bool expected for debug, found " + repr(type(debug))
-    
+
     cysteine_list = []
     with gzip.open(PDB_file.encode("unicode_escape"), "rt") as unzipped: #open the structure
         try:
             structure = PDBParser(QUIET = not debug).get_structure("struc", unzipped) #parse the structure
         except OSError:
             raise Exception(f"Failed to parse structure from '{PDB_file}'.")
-        
+
         chain_sequences = {}
         for chain in structure[0]: #iterate through chains
             realreslist = [] #make a list to store the residues in a chain
@@ -868,10 +868,10 @@ def get_flanking_info(PDB_file : str,
                 #populating realreslist
                 residue.newresnum = index
                 realreslist.append(residue)
-                
+
                 #populating res_list, which has gaps
                 resname = residue.get_resname()
-                try: 
+                try:
                     if resname != "HOH" and residue.id[1] >= 0: #check residue is not water and has a seq number of 0 or more
                         res_list[residue.id[1] -1] = threetoone[resname] #compile chain sequence
                 except:
@@ -909,9 +909,9 @@ def get_flanking_info(PDB_file : str,
                                           "flanking pKas" : pKas,
                                           "flanking hydrophobicities": hyd,
                                           "flanking charges at pH 7": charge})
-                    
+
             chain_sequences[chain.id] = "".join(res_list) #join the res_list compiled previously into strings add to a dictionary with the chain letters as keys
-    
+
     newdata = pd.DataFrame() #new empty dataframe to start building
     for cysteine in cysteine_list:
         pdrow = pd.DataFrame([[cysteine["PDBid"], cysteine["chain"], cysteine["residue"]]], columns = ["PDBid","chain", "residue"])
@@ -932,7 +932,7 @@ def get_residues(residue : str,
                  frameshift : bool = False,
                  strict = False) -> dict:
     """
-    Takes a sequence. Creates a dictionary with the residue number and flanking residues 
+    Takes a sequence. Creates a dictionary with the residue number and flanking residues
     of an amino acid that can be found in the sequence.
 
     Parameters
@@ -944,13 +944,13 @@ def get_residues(residue : str,
     sequence : str
         Sequence in which to find the residues.
     placeholder : str, optional
-        Placeholder where there is empty space, such as after the end of a sequence. 
+        Placeholder where there is empty space, such as after the end of a sequence.
         The default is "!".
     frameshift : bool, optional
-        Whether to include also returning frameshifted versions of the sequence, to 
+        Whether to include also returning frameshifted versions of the sequence, to
         make sequence alignment more robust. The default is False.
-        Frameshift is a bit of a misnomer, just mean (for example) if a residue has 
-        been swapped with another next to it, like ABCDEFG compared to ABCEDFG which 
+        Frameshift is a bit of a misnomer, just mean (for example) if a residue has
+        been swapped with another next to it, like ABCDEFG compared to ABCEDFG which
         would otherwise lead to not detecting that residue at all.
     strict : bool, optional
         Whether to raise an exception if the input sequence isn't valid.
@@ -958,10 +958,10 @@ def get_residues(residue : str,
     Returns
     -------
     dict
-        A dictionary containing sequence numbers as keys with the data attached to each 
+        A dictionary containing sequence numbers as keys with the data attached to each
         key being a sequence around that residue.
         If frameshift is True, some entries will be frameshifted sequences with a key
-        as the residue number followed by +/- and a number denoting the number of 
+        as the residue number followed by +/- and a number denoting the number of
         frameshifts.
 
     """
@@ -982,14 +982,14 @@ def get_residues(residue : str,
                 except:
                     flank.append(placeholder) #what to add when there isn't a residue
             reslist[position - flanknum + 1] =  "".join(flank) #add the residue and flanks to the list
-    
-    #   Add new potential frameshifted residues        
+
+    #   Add new potential frameshifted residues
     if frameshift != False:
         shifted = {}
         if isinstance(frameshift, int):
                 frameshift += 1
         for res in reslist:    #   For every seq1 residue
-        
+
             #   Set the frameshift level to the flanknum if frameshift not specified
             if isinstance(frameshift, bool):
                 frameshift = flanknum + 1
@@ -1003,21 +1003,21 @@ def get_residues(residue : str,
                 for i in range(shift):
                     shifted[str(res) + "-" + str(shift)].insert(flanknum, "X")
                     shifted[str(res) + "-" + str(shift)].pop(0)
-                    
+
             #   Frameshift every potential residue on the right side
             for shift in range(1, frameshift):
                 shifted[str(res) + "+" + str(shift)] = list(reslist[res])
                 for i in range(shift):
                     shifted[str(res) + "+" + str(shift)].insert(flanknum + 1, "X")
                     shifted[str(res) + "+" + str(shift)].pop()
-        
-        #   Concatonate the shifted sequences into strings so they are the same as 
+
+        #   Concatonate the shifted sequences into strings so they are the same as
         #   normal ones.
         for res in shifted:
             shifted[res] = "".join(shifted[res])
         #   Add the shifted sequences to the normal ones
         reslist.update(shifted)
-        
+
     return reslist
 
 amino_acid_groups = {False: [], "positive" : ["R", "H", "K"], "negative": ["D", "E"], "polar": ["S", "T", "N", "Q"], "hydrophobic":["A", "V", "I", "L", "M", "F", "W"]}
@@ -1029,7 +1029,7 @@ def get_equivalentresidue(resnum : int,
                           pass_nan : bool = True,
                           debug : bool = False) -> list:
     """
-    Takes the specified residue from sequence 1 and uses alignment to get its number 
+    Takes the specified residue from sequence 1 and uses alignment to get its number
     in sequence 2.
 
     Parameters
@@ -1043,7 +1043,7 @@ def get_equivalentresidue(resnum : int,
     flanknum : int, optional
         The number of flanking residues to use in the alignment. The default is 5.
     placeholder : str, optional
-        The placeholder to be used when a residue is missing, such as the beginning 
+        The placeholder to be used when a residue is missing, such as the beginning
         and ends of the sequence. Must be one character. The default is "!".
     pass_nan : bool, optional
         Whether to pass or raise an exception when given nan in the sequences
@@ -1057,11 +1057,11 @@ def get_equivalentresidue(resnum : int,
         [1]: alignment score
 
     """
-    
+
     #print("resnum:", resnum, "\tseq1:", seq1, "\tseq2:", seq2, "\tplaceholder:", placeholder)
     #print(get_residues(seq1[resnum - 1], 5, seq1, placeholder))
     #print(seq1, resnum)
-    
+
     #catch input errors
     assert isinstance(resnum, int), "Expected int for resnum, got " + repr(type(resnum))
     assert isinstance(pass_nan, bool), "Expected bool for pass_nan, got " + repr(type(pass_nan))
@@ -1069,7 +1069,7 @@ def get_equivalentresidue(resnum : int,
     assert isinstance(placeholder, str), "Expected str for placeholder, got " + repr(type(placeholder))
     assert len(placeholder) == 1, f"Expected single letter string for placeholder, got '{placeholder}'."
     assert isinstance(debug, bool), "Expected bool for debug, got " + repr(type(debug))
-    
+
     if pass_nan == False:
         assert isinstance(seq1, str), "Expected str for seq1, got '" + repr(seq1) + "' which is " + repr(type(seq1))
         assert isinstance(seq2, str), "Expected str for seq2, got '" + repr(seq2) + "' which is " + repr(type(seq2))
@@ -1092,7 +1092,7 @@ def get_equivalentresidue(resnum : int,
         failed = True
         with open("converting regions errors.csv", "a+") as f:
             f.write(f"No residue {resnum} in {seq1} to convert to {seq2}\r")
-    
+
     if failed == False:
         #   Turn seq2 into a dictionary of its relevent residues
         seq2 = get_residues(seq1[resnum - 1],
@@ -1176,7 +1176,7 @@ def convert_region(start_sequence: str,
                    end_sequence : str,
                    debug = False) -> dict:
     """
-    Takes a start_region in start_sequence and returns where this region is in end_sequence. 
+    Takes a start_region in start_sequence and returns where this region is in end_sequence.
     Use biological sequence numbers (start at 1)
 
     Parameters
@@ -1189,11 +1189,11 @@ def convert_region(start_sequence: str,
         The new sequence where this region should be detected.
     debug : bool, optional
         Should progress be printed.
-    
+
     Returns
     -------
     dict
-        Contains "start" and "end" as the start and end of the sequence, and "score" 
+        Contains "start" and "end" as the start and end of the sequence, and "score"
         as the alignment score of the new region.
 
     """
@@ -1240,8 +1240,8 @@ def convert_region(start_sequence: str,
     try:
         seq_range = range(start_region[0], start_region[1] + 1) #correct for addition of X and make it inclusive
     except:
-        raise Exception("""start_region must be number or list of two positive numbers to 
-                        specify a sequence region. Got:""" + repr(start_region) + """ for 
+        raise Exception("""start_region must be number or list of two positive numbers to
+                        specify a sequence region. Got:""" + repr(start_region) + """ for
                         sequence """ + repr(start_sequence))
 
     for i in seq_range:
@@ -1331,12 +1331,12 @@ def convert_region(start_sequence: str,
         numbers += 1
     score = score/numbers
     score = (score/22)*100
-    
+
     return {"start" : start, "end": end, "score" : score}
 
 def int_or_nan(intended_integer):
     """
-    
+
     Parameters
     ----------
     intended_integer : anything convertible to int
@@ -1356,7 +1356,7 @@ def int_or_nan(intended_integer):
 def convert_regions(regions : dict, seq1 : str, seq2) -> dict:
     """
     Takes a dictionary of significant regions as an input, converts them from sequence 1
-    to sequence 2. If a dict of sequences is given for seq2, then will find the region 
+    to sequence 2. If a dict of sequences is given for seq2, then will find the region
     in all those sequences.
 
     Parameters
@@ -1371,7 +1371,7 @@ def convert_regions(regions : dict, seq1 : str, seq2) -> dict:
     Returns
     -------
     dict
-        New dictionary of regions that have been converted from seq1 sequence to seq2 
+        New dictionary of regions that have been converted from seq1 sequence to seq2
         sequence.
 
     """
@@ -1381,64 +1381,64 @@ def convert_regions(regions : dict, seq1 : str, seq2) -> dict:
         return np.nan
     if isinstance(regions, str):
         # Convert the dictionary string to dict
-        regions = ast.literal_eval(regions) 
+        regions = ast.literal_eval(regions)
     assert isinstance(seq1, str), "Expected str for seq1, got " + repr(type(seq1))
-    
-    #   Check if seq2 is a dictionary, in which case interpret it as multiple sequences to 
+
+    #   Check if seq2 is a dictionary, in which case interpret it as multiple sequences to
     #   convert to.
     multiple_target_sequences = False
     if isinstance(seq2, dict):
         multiple_target_sequences = True
     else:
         assert isinstance(seq2, str), "Expected str or dict for seq2, got " + repr(type(seq2))
-    
-    #   If seq2 is only one sequence, wrap it in a dictionary so it is dealt with the 
+
+    #   If seq2 is only one sequence, wrap it in a dictionary so it is dealt with the
     #   same as if multiple sequences.
     if multiple_target_sequences == False:
         seq2 = {"placeholder" : seq2}
-    
+
     #   Iterate through the target sequences.
     new_regions_per_seq2 = {}
-    
+
     for target_key in seq2:
         #   Make a dictionary for storing the edited regions
         new_regions = {}
-        
+
         #   Iterate through the regions.
         for region in regions:
             #   Get all the dictionary keys of the regions
             #print("Here we go")
             #print(regions[region])
             keys = regions[region].copy().keys()
-            
+
             #   Copy regions for editing
             new_regions[region] = regions[region].copy()
-            
+
             #   If just a position is offered, indicating 1 amino acid
             if "position" in keys:
                 #   Convert that amino acid position
-                converted = convert_region(seq1, 
-                                           int_or_nan(regions[region]["position"]), 
+                converted = convert_region(seq1,
+                                           int_or_nan(regions[region]["position"]),
                                            seq2[target_key]).copy()
                 new_regions[region]["position"] = converted.copy()["start"]
                 new_regions[region]["score"] = converted.copy()["score"]
-                
+
             #   If a begin and end is offered, so usually an amino acid range
             if "begin" in keys and "end" in keys:
-                converted = convert_region(seq1, 
+                converted = convert_region(seq1,
                                            [int_or_nan(regions[region]["begin"]), int_or_nan(regions[region]["end"])],
                                            seq2[target_key])
                 new_regions[region]["begin"] = converted.copy()["start"]
                 new_regions[region]["end"] = converted.copy()["end"]
                 new_regions[region]["score"] = converted.copy()["score"]
-                
+
         #   Save this set of regions in into the dictionary of regions for each seq2
         new_regions_per_seq2[target_key] = new_regions.copy()
-    
+
     #   If seq2 was a string, take the output out of the dictionary it was wrapped in.
     if multiple_target_sequences == False:
         new_regions_per_seq2 = new_regions_per_seq2["placeholder"]
-    
+
     return new_regions_per_seq2
 
 def get_uniprot_sequence(unicode : str,
@@ -1472,16 +1472,16 @@ def get_uniprot_sequence(unicode : str,
         raise Exception("Given nan as unicode, which is not allowed if pass_nan == False.")
     if pd.isnull(unicode) == False:
         assert isinstance(unicode, str), "Expected string or nan for unicode, got '" + repr(unicode) + "', which is " + repr(type(unicode))
-        
+
         # Fetch the sequence of the accession given
         if debug == True: print("getting", "https://rest.uniprot.org/uniprotkb/" + unicode + ".fasta")
         soup = requests.get("https://rest.uniprot.org/uniprotkb/" + unicode + ".fasta").text
         output = "".join(soup.split("\n")[1:-1])
-        
+
         # If pass_no_output = False then raise an exception if the output is ""
         if pass_no_output == False and output == "":
             raise Exception(f"No sequence found for {unicode} and pass_no_output is False.")
-        
+
         # Otherwise a message if output is ""
         if output == "" and debug == True:
             print(f"No sequence found for {unicode}.")
@@ -1491,7 +1491,7 @@ def get_uniprot_sequence(unicode : str,
 
 def plusminusorNaN(input, separator):
     """
-    This function splits a number with a combined deviation separated (e.g. by ±) into a list 
+    This function splits a number with a combined deviation separated (e.g. by ±) into a list
     with two seperate numbers, or otherwise returns an extra NaN if there is no ±
     """
     try:
@@ -1501,7 +1501,7 @@ def plusminusorNaN(input, separator):
 
 def separatevariance(input, separator, var_addon):
     """
-    Takes a pandas dataframe and separates (e.g. by ±) variance into their own columns with a 
+    Takes a pandas dataframe and separates (e.g. by ±) variance into their own columns with a
     custom header addon.
     """
     data = input
@@ -1570,7 +1570,7 @@ def get_alphafold_structure(uniprot_code : str,
     Returns
     -------
     None.
-    
+
     """
     folder = parse_folder(folder)
     # Check whether the structure exists
@@ -1603,7 +1603,7 @@ def PDBsearch(query : str) -> list:
     """
     #   Check input is a string
     assert isinstance(query, str), "Expected str for query, got " + repr(type(query))
-    
+
     # Make the query
     if pdb_search_enabled:
         query = PDBquery(query)
@@ -1710,11 +1710,11 @@ def get_CIF_structure(pdb_id : str,
             return
     else:
         raise RuntimeError(f"Unexpected error code '{data.status_code}' for PDB structure for {pdb_id}.")
-    
+
 async def async_download_structure(structure: str, semaphore: asyncio.Semaphore, folder: str = "structures", debug: bool = False, max_retries: int = 3):
     """
     Asynchronously download a single structure with retry logic.
-    
+
     Args:
         structure: Structure ID to download
         semaphore: Semaphore for rate limiting
@@ -1746,7 +1746,7 @@ async def async_download_structures(structures: list, max_concurrent: int = 5, f
     """
     Asynchronously download multiple structures with rate limiting.
     Failed downloads will raise exceptions.
-    
+
     Args:
         structures: List of structure IDs to download
         max_concurrent: Maximum number of concurrent downloads
@@ -1754,11 +1754,11 @@ async def async_download_structures(structures: list, max_concurrent: int = 5, f
         debug: Whether to print debug messages
     """
     semaphore = asyncio.Semaphore(max_concurrent)
-    tasks = [async_download_structure(structure, semaphore, folder=folder, debug=debug) 
+    tasks = [async_download_structure(structure, semaphore, folder=folder, debug=debug)
              for structure in structures]
-    
+
     results = {"succeeded": [], "failed": []}
-    
+
     with tqdm(total=len(structures), desc="Downloading structures", position=0) as pbar:
         for structure, task in zip(structures, asyncio.as_completed(tasks)):
             try:
@@ -1768,7 +1768,7 @@ async def async_download_structures(structures: list, max_concurrent: int = 5, f
                 results["failed"].append((structure, str(e)))
             finally:
                 pbar.update(1)
-    
+
     if results["failed"]:
         failed_str = "\n".join(f"{s}: {e}" for s, e in results["failed"])
         raise RuntimeError(f"Failed to download {len(results['failed'])} structures:\n{failed_str}")
@@ -1805,9 +1805,9 @@ def run_propka(input_file,
     Parameters
     ----------
 
-    input_file : str  
+    input_file : str
         The name of the structure to compute propka for (e.g. "3ii6").
-    structure_folder : str, optional  
+    structure_folder : str, optional
         The folder to look for the structure in. The default is "pdb".
     structure_extension : str, optional
         The extension of the structure file. The default is "ent".
@@ -1817,12 +1817,12 @@ def run_propka(input_file,
         Whether to check if the propka file exists before computing it. The default is True.
     silence : bool, optional
         Whether to print messages as it goes. The default is False.
-        
+
     Returns
     -------
     i : propka.run.single
         The propka object. Also saves it to a file.
-        
+
     """
     worked = False
 
@@ -1844,7 +1844,7 @@ def run_propka(input_file,
             print("Going to comput propka for " + input_file + ".")
         structure_folder = parse_folder(structure_folder)
         paths = glob.glob(structure_folder + "/**/" + input_file + "*.*" + structure_extension + "*", recursive = True)
-        if paths == []:    
+        if paths == []:
             print("No structure found with glob '" + structure_folder + "/**/" + input_file + "*.*" + structure_extension + "*" + "'.")
             return
         path = paths[0]
@@ -1866,9 +1866,9 @@ def run_propka(input_file,
                 print("PROPKA failed for: ", input_file)
             with open("PROPKA failed for.txt", "a") as file:
                 file.write(input_file + "\r")
-            
+
     if worked == True:
-        # Move the file to propka folder 
+        # Move the file to propka folder
         shutil.move(path.split("\\")[-1].split("ent")[0] + "pka", propka_path.replace("/", "/pdb"))
         return i
 
@@ -1886,7 +1886,7 @@ def readpropka(filepath): #reads a propka file, saving the cysteines
                 pkadata.append(pkaline)
     except:
         print(filepath, "not found")
-    
+
     if found == True:
         # Save the cysteine rows as a list
         # Previously didn't work with 4-digit residue numbers or more, so changed it.
@@ -1895,13 +1895,13 @@ def readpropka(filepath): #reads a propka file, saving the cysteines
         # Deal with the stupid formatting which means some bits of data join onto each other,
         # by splittting these bits of data in two
         for cysteine in cysteines:
-            
+
             # Separate the residue number from the residue name in cases where residue
             # number was digits or more.
             if len(cysteine[0]) > 3:
                 cysteine.insert(1, re.split("(\d+)", cysteine[0])[0])
                 cysteine.insert(2, re.split("(\d+)", cysteine[0])[1])
-                cysteine.pop(0)            
+                cysteine.pop(0)
 
             if len(cysteine) < 16:
                 for i in range(7):
@@ -1919,10 +1919,10 @@ def readpropka(filepath): #reads a propka file, saving the cysteines
                     cysteine.insert(20, re.split("(\d+)", cysteine[19])[0])
                     cysteine.insert(21, re.split("(\d+)", cysteine[19])[1])
                     cysteine.pop(19)
-        
+
         #remove the bond rows (only keep the actual cysteine)
         cysteines = [i[:10] for i in cysteines if i[3] != ""]
-        
+
         #turn cysteines into a pandas dataframe
         save_columns = ["resn", "resi", "chain", "pka", "buried", "nil", "desolvation regular 1", "desolvation regular 2", "effects re 1", "effects re 2"]
         data = pd.DataFrame(columns = save_columns, dtype = object)
@@ -1931,13 +1931,13 @@ def readpropka(filepath): #reads a propka file, saving the cysteines
             newline = pd.DataFrame([i], columns = save_columns)
             data = pd.concat([data, newline],
                              ignore_index = True)
-            
+
         #add the PDBid as a column
         data["PDBid"] = filepath.split("pdb")[-1].split(".pka")[0]
-        
+
         #drop nil
         data = data.drop(columns = ["nil", "resn"])
-        
+
         return data
 
 # MAKING NON CYSTEINE SPECIFIC
@@ -1958,7 +1958,7 @@ def readpropka_better(filepath = None):
             found = True
     except:
         print(filepath, "not found")
-    
+
     if found == True:
         # Save the residues rows as a list
         # Previously didn't work with 4-digit residue numbers or more,
@@ -1976,7 +1976,7 @@ def readpropka_better(filepath = None):
             if len(residue[0]) > 3:
                 residue.insert(1, re.split("(\d+)", residue[0])[0])
                 residue.insert(2, re.split("(\d+)", residue[0])[1])
-                residue.pop(0)            
+                residue.pop(0)
 
             if len(residue) < 16:
                 for i in range(7):
@@ -1995,10 +1995,10 @@ def readpropka_better(filepath = None):
                     residue.insert(20, re.split("(\d+)", residue[19])[0])
                     residue.insert(21, re.split("(\d+)", residue[19])[1])
                     residue.pop(19)
-        
+
         # Remove the bond rows (only keep the actual residue)
         residues = [i[:10] for i in residues if i[3] != ""]
-        
+
         # Turn list of residues into a pandas dataframe
         save_columns = ["resn",
                         "resi",
@@ -2015,19 +2015,19 @@ def readpropka_better(filepath = None):
             newline = pd.DataFrame([i], columns = save_columns)
             data = pd.concat([data, newline],
                              ignore_index = True)
-            
+
         # Add the PDBid as a column
         data["PDBid"] = filepath.split("pdb")[-1].split(".pka")[0]
-        
+
         # Drop nil
         data = data.drop(columns = ["nil"])
-        
+
         return data
-    
+
 def read_propkas(folder = "propka/"):
     """
     Read every propka file in a folder and save it as a pandas dataframe.
-    
+
     Parameters
     ----------
     folder : str, optional
@@ -2090,7 +2090,7 @@ def check_structure_for_proximal_atoms(structure,
 
     Returns
     -------
-    List  
+    List
         List of dictionaries containing the two residues and their distance from each other.
 
     Examples
@@ -2098,7 +2098,7 @@ def check_structure_for_proximal_atoms(structure,
     >>> check_structure_for_proximal_atoms("structures/A2A5R2.ent", "CYS", "CYS", atom_1 = "SG", atom_2 = "SG", max_distance = 5)
 
     >>> check_structure_for_proximal_atoms("structures/A2A5R2.ent", "CYS", "CYS", atom_1 = "SG", atom_2 = "SG", max_distance = 5, HSE = True)
-    
+
     >>> check_structure_for_proximal_atoms("structures/A2A5R2.ent", "CYS", "CYS", atom_1 = "SG", atom_2 = "SG", max_distance = 5, b_factor = "one")
     """
 
@@ -2137,7 +2137,7 @@ def check_structure_for_proximal_atoms(structure,
                 # Only keep relevent residues
                 if residue.get_resname() == residue_1 or residue.get_resname() == residue_2:
                     residue.chain = chain
-                    
+
                     if b_factor is not None:
                         residue.b_factor = b_factors
 
@@ -2151,7 +2151,7 @@ def check_structure_for_proximal_atoms(structure,
                     if strict is True:
                         assert atom_1 in [atom.get_id() for atom in residue_A], f"Atom {atom_1} not found in residue {residue_A.get_resname()}{residue_A.get_id()[1]}"
                         assert atom_2 in [atom.get_id() for atom in residue_B], f"Atom {atom_2} not found in residue {residue_B.get_resname()}{residue_B.get_id()[1]}"
-                    
+
                     if atom_1 in [atom.get_id() for atom in residue_A] \
                         and atom_2 in [atom.get_id() for atom in residue_B]:
                         # Measure the distance between the atoms and document if it
@@ -2163,14 +2163,14 @@ def check_structure_for_proximal_atoms(structure,
                                             "residue number B" : residue_B.id[1],
                                             "chain B" : residue_B.chain.id,
                                             "distance" : distance}
-                            
+
                             if HSE is True:
                                 res_HSE = get_res_HSE_structure(structure,
                                                                 residue_A.chain.id,
                                                                 residue_A.id[1],
                                                                 residue_B.chain.id,
                                                                 residue_B.id[1])
-                                
+
                                 output_dict["HSE A num1"] = res_HSE[0][0]
                                 output_dict["HSE A num2"] = res_HSE[0][1]
                                 output_dict["HSE B num1"] = res_HSE[1][0]
@@ -2181,10 +2181,10 @@ def check_structure_for_proximal_atoms(structure,
                                     output_dict["b factors"] = residue_A.b_factor
                                 if b_factor == "two":
                                     output_dict["b factors A"] = residue_A.b_factor
-                                    output_dict["b factors B"] = residue_B.b_factor              
+                                    output_dict["b factors B"] = residue_B.b_factor
 
                             output_residues.append(output_dict)
-                        
+
             # Remove residue_A from residues so it wont get tested again
             residues.remove(residue_A)
     return output_residues
@@ -2202,7 +2202,7 @@ def combine_range(input : list):
     """
     output = []
     last_number = None
-    
+
     # Convert to list and sort input
     input = list(input)
     input = sorted(input)
@@ -2252,7 +2252,7 @@ def extract_interactions(structure,
     >>> interactions = sq.extract_interactions(structure)
 
     """
-    
+
     interactions = []
 
     for model in structure:
@@ -2389,7 +2389,7 @@ def get_res_HSE_structure(structure,
 
     if isinstance(model, Structure.Structure):
         model = structure[0]
-        
+
     # Creating feature that speeds up HSE algorithm by removing
     # distant CA atoms before calculating.
     if fast == True:
@@ -2409,7 +2409,7 @@ def get_res_HSE_structure(structure,
                         if chain2 != None and resn2 != None:
                             if atom.id == "CA" and atom - model[chain2][resn2]["CA"] < 13:
                                 save_atoms.append(atom)
-                    except: 
+                    except:
                         # Failed to find a target residue
                         #print(f"Failed to use fast HSE.")
                         # Stop trying to use feature that speeds up HSE
@@ -2417,12 +2417,12 @@ def get_res_HSE_structure(structure,
                         if debug:
                             print("Failed fast")
                         break
-        
+
         # Iterate through every CA atom, and remove it if it isn't
         # in save_atoms .
-        if fast == True: # Check that saving proximal CAs worked before removing non-proximal CAs   
+        if fast == True: # Check that saving proximal CAs worked before removing non-proximal CAs
             for chain in model:
-                for res in chain: 
+                for res in chain:
                     try:
                         if res["CA"] not in save_atoms:
                             chain.detach_child(res.id)
@@ -2431,7 +2431,7 @@ def get_res_HSE_structure(structure,
         else:
             pass
             #print("Reverting to computing regular HSE.")
-    
+
     # If we want to ignore other chains in the structure when
     # computing HSE
     if only_chains == True:
@@ -2446,7 +2446,7 @@ def get_res_HSE_structure(structure,
             res_id1 = model[chain1][resn1].get_id()
         except:
             pass
-        
+
         try:
             info1 = exp_ca[(model[chain1].get_id(), res_id1)]
         except:
@@ -2461,7 +2461,7 @@ def get_res_HSE_structure(structure,
                 info2 = exp_ca[(model[chain2].get_id(), res_id2)]
             except:
                 info2 = (np.nan, np.nan, 1)
-            return [info1, 
+            return [info1,
                     info2]
     else:
         hse = HSExposure()
@@ -2475,7 +2475,7 @@ def get_res_HSE_file(PDB_file,
                 only_chains = False,
                 fast = True,
                 quiet = True): #get the half sphere exposure of the CA atom of a residue: https://biopython.org/wiki/The_Biopython_Structural_Bioinformatics_FAQ
-    
+
     with gzip.open(PDB_file, "rt") as unzipped:
         structure = PDBParser(QUIET = quiet).get_structure("struc", unzipped)
         return get_res_HSE_structure(structure,
@@ -2530,7 +2530,7 @@ class Sequence:
             self.sequence_type = kwargs["sequence_type"]
         if "name" in kwargs:
             self.name = kwargs["name"]
-    
+
     # String behaviour of sequence
     def __str__(self):
         return self.sequence
@@ -2552,7 +2552,7 @@ class Sequence:
         if hasattr(self, "sequence_type"):
             sequence.sequence_type = self.sequence_type
         return sequence
-    
+
     # Compair behaviour
     def __eq__(self, other):
         assert isinstance(other, Sequence), "Expected Sequence for other, got " + repr(type(other))
@@ -2585,7 +2585,7 @@ class Sequence:
         return convert_region(start_sequence = search_sequence,
                               start_region = region,
                               end_sequence = self.sequence)
-    
+
     def transcribe(self):
         """
         Transcribe DNA to RNA.
@@ -2602,7 +2602,7 @@ class Sequence:
 
     def blast(self):
         assert hasattr(self, "sequence_type"), "Sequence type must be defined for BLAST search."
-        
+
         if self.sequence_type == "DNA" or self.sequence_type == "RNA":
             result_handle = NCBIWWW.qblast("blastn", "nt", self.sequence)
         elif self.sequence_type == "protein":
