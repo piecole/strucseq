@@ -1050,6 +1050,18 @@ def get_equivalentresidue(resnum : int,
     debug : bool, optional
         Whether a message should be printed when failing to find a residue. The default is True.
 
+    Examples
+    --------
+    >>> get_equivalentresidue(resnum = 1, seq1 = "ABCDEFG", seq2 = "ABCXYZG")
+    [1, 8]
+
+    >>> get_equivalentresidue(165, "MERKISRIHLVSEPSITHFLQVSWEKTLESGFVITLTDGHSAWTGTVSESEISQEADDMAMEKGKYVGELRKALLSGAGPADVYTFNFSKESCYFFFEKNLKDVSFRLGSFNLEKVENPAEVIRELICYCLDTIAENQAKNEHLQKENERLLRDWNDVQGRFEKCVSAKEALETDLYKRFILVLNEKKTKIRSLHNKLLNAAQEREKDIKQEGETAICSEMTADRDPVYDESTDEESENQTDLSGLASAAVSKDDSIISSLDVTDIAPSRKRRQRMQRNLGTEPKMAPQENQLQEKENSRPDSSLPETSKKEHISAENMSLETLRNSSPEDLFDEI", "WTATVSELEISQEADDMAMEKGKYIDELRKALVPGSGAAGTYKFLFSKESQHFSLEKELKDVSFRLGSFNLDKVSNSAEVIRELICYCLDTITEKQAKNEHLQKENERLLRDWNDVQGRFEKCVSAKEALEADLYQRFILVLNEKKTKIRSLHKLLNEVQQLEESTKPERENPCSDKTPEEHGLYDGSTDEESGAPVQAAETLHKDDSIFSSPDVTDIAPSRKRRHRMQKNLGTEPKMAPQELPLQEKERLASSLPQTLKEESTSAENMSLETLRNSSPEDLFD")
+    [165, 11]
+
+    sq.get_equivalentresidue(165, "MERKISRIHLVSEPSITHFLQVSWEKTLESGFVITLTDGHSAWTGTVSESEISQEADDMAMEKGKYVGELRKALLSGAGPADVYTFNFSKESCYFFFEKNLKDVSFRLGSFNLEKVENPAEVIRELICYCLDTIAENQAKNEHLQKENERLLRDWNDVQGRFEKCVSAKEALETDLYKRFILVLNEKKTKIRSLHNKLLNAAQEREKDIKQEGETAICSEMTADRDPVYDESTDEESENQTDLSGLASAAVSKDDSIISSLDVTDIAPSRKRRQRMQRNLGTEPKMAPQENQLQEKENSRPDSSLPETSKKEHISAENMSLETLRNSSPEDLFDEI", "WTATVSELEISQEADDMAMEKGKYIDELRKALVPGSGAAGTYKFLFSKESQHFSLEKELKDVSFRLGSFNLDKVSNSAEVIRELICYCLDTITEKQAKNEHLQKENERLLRDWNDVQGRFEKCVSAKEALEADLYQRFILVLNEKKTKIRSLHKLLNEVQQLEESTKPERENPCSDKTPEEHGLYDGSTDEESGAPVQAAETLHKDDSIFSSPDVTDIAPSRKRRHRMQKNLGTEPKMAPQELPLQEKERLASSLPQTLKEESTSAENMSLETLRNSSPEDLFD")
+    [123, 11]
+
+    
     Returns
     -------
     list
@@ -1174,6 +1186,7 @@ def reverse_sequence(sequence, seq_start = False, seq_end = False):
 def convert_region(start_sequence: str,
                    start_region : Union[int, list],
                    end_sequence : str,
+                   strict : bool = True,
                    debug = False) -> dict:
     """
     Takes a start_region in start_sequence and returns where this region is in end_sequence.
@@ -1187,6 +1200,8 @@ def convert_region(start_sequence: str,
         The residue or residue range (as a list) that this region occupies.
     end_sequence : str
         The new sequence where this region should be detected.
+    strict : bool, optional
+        Whether to raise an exception if the input sequence isn't valid.
     debug : bool, optional
         Should progress be printed.
 
@@ -1206,13 +1221,20 @@ def convert_region(start_sequence: str,
     #   Assert some stuff about the sequence
     assert isinstance(start_sequence,
                       str), "Expected string for start_sequence, got " + repr(type(start_sequence))
-    if len(start_sequence) == 0:
-        raise Exception("start_sequence is empty string.")
+    if len(start_sequence) == 0 and strict:
+        print(f"end_sequence: {end_sequence}")
+        print(f"start_region: {start_region}")
+        raise ValueError("start_sequence is empty string.")
     assert type(start_region) in [list, int], "Expected list or int for start_region, got " + repr(type(start_region))
     assert isinstance(end_sequence,
                       str), "Expected string for end_sequence, got " + repr(type(end_sequence))
-    if len(end_sequence) == 0:
-        raise Exception("end_sequence is emptry string.")
+    if len(end_sequence) == 0 and strict:
+        print(f"start_sequence: {start_sequence}")
+        print(f"start_region: {start_region}")
+        raise ValueError("end_sequence is an empty string.")
+    
+    if len(start_sequence) == 0 or len(end_sequence) == 0:
+        return {"start" : np.nan, "end": np.nan, "score" : np.nan}
 
     #   If only one number is presented for start region, duplicate it to give a range
     #   of just one amino acid.
@@ -1353,7 +1375,11 @@ def int_or_nan(intended_integer):
     except:
         return np.nan
 
-def convert_regions(regions : dict, seq1 : str, seq2) -> dict:
+def convert_regions(regions : dict,
+                    seq1 : str,
+                    seq2,
+                    strict : bool = True,
+                    debug = False) -> dict:
     """
     Takes a dictionary of significant regions as an input, converts them from sequence 1
     to sequence 2. If a dict of sequences is given for seq2, then will find the region
@@ -1418,16 +1444,20 @@ def convert_regions(regions : dict, seq1 : str, seq2) -> dict:
             if "position" in keys:
                 #   Convert that amino acid position
                 converted = convert_region(seq1,
-                                           int_or_nan(regions[region]["position"]),
-                                           seq2[target_key]).copy()
+                                        int_or_nan(regions[region]["position"]),
+                                        seq2[target_key],
+                                        strict = strict,
+                                        debug = debug).copy()
                 new_regions[region]["position"] = converted.copy()["start"]
                 new_regions[region]["score"] = converted.copy()["score"]
 
             #   If a begin and end is offered, so usually an amino acid range
             if "begin" in keys and "end" in keys:
                 converted = convert_region(seq1,
-                                           [int_or_nan(regions[region]["begin"]), int_or_nan(regions[region]["end"])],
-                                           seq2[target_key])
+                                        [int_or_nan(regions[region]["begin"]), int_or_nan(regions[region]["end"])],
+                                        seq2[target_key],
+                                        strict = strict,
+                                        debug = debug)
                 new_regions[region]["begin"] = converted.copy()["start"]
                 new_regions[region]["end"] = converted.copy()["end"]
                 new_regions[region]["score"] = converted.copy()["score"]
@@ -1618,6 +1648,7 @@ def get_PDB_structure(pdb_id : str,
                       folder : str = "structures",
                       extension = "ent",
                       strict = False,
+                      gzipped = False,
                       debug = False):
     """
     Downloads a structure from the PDB for a given PDB ID.
@@ -1632,6 +1663,8 @@ def get_PDB_structure(pdb_id : str,
         Extension of the file. The default is "ent".
     strict : bool, optional
         Whether to raise an exception if the structure is not found. The default is False.
+    gzipped : bool, optional
+        Whether to download the gzipped version of the structure. The default is False.
     debug : bool, optional
         Whether to print messages as it goes. The default is False.
     Returns
@@ -1651,6 +1684,8 @@ def get_PDB_structure(pdb_id : str,
     if debug:
         print("Downloading structure for " + pdb_id + " from PDB.")
     url = "https://files.rcsb.org/download/" + pdb_id + ".pdb"
+    if gzipped:
+        url = url + ".gz"
     data = requests.get(url, allow_redirects=True)
     # Make sure that response was 200
     if data.status_code == 200:
@@ -1794,7 +1829,7 @@ def download_structures(structures: list, max_concurrent: int = 5, folder: str =
 import propka.run as pk
 
 def run_propka(input_file,
-               structure_folder = "pdb",
+               structure_folder = "structures",
                structure_extension = "ent",
                propka_folder = "propka/",
                check = True,
@@ -1830,10 +1865,10 @@ def run_propka(input_file,
     try:
         pk
     except:
-        raise Exception("PROPKA not installed. Please install to use this function.")
+        raise ImportError("PROPKA not installed. Please install to use this function.")
 
     propka_folder = parse_folder(propka_folder)
-    propka_path = propka_folder + "pdb" + input_file + ".pka"
+    propka_path = propka_folder + input_file + ".pka"
     # Check if the propka file exists
     if os.path.exists(propka_path) and check:
         if not silence:
@@ -1843,10 +1878,10 @@ def run_propka(input_file,
         if not silence:
             print("Going to comput propka for " + input_file + ".")
         structure_folder = parse_folder(structure_folder)
-        paths = glob.glob(structure_folder + "/**/" + input_file + "*.*" + structure_extension + "*", recursive = True)
+        paths = glob.glob(structure_folder + "**/" + input_file + "*.*" + structure_extension + "*",
+                          recursive = True)
         if paths == []:
-            print("No structure found with glob '" + structure_folder + "/**/" + input_file + "*.*" + structure_extension + "*" + "'.")
-            return
+            raise FileNotFoundError("No structure found with glob '" + structure_folder + "**/" + input_file + "*.*" + structure_extension + "*" + "'.")
         path = paths[0]
 
         if not silence:
@@ -1862,14 +1897,14 @@ def run_propka(input_file,
                     i = pk.single(path.split(structure_extension)[0] + "pdb", optargs = ["-q"], stream = f)
             worked = True
         except:
-            if silence == False:
+            if not silence:
                 print("PROPKA failed for: ", input_file)
             with open("PROPKA failed for.txt", "a") as file:
                 file.write(input_file + "\r")
 
     if worked == True:
         # Move the file to propka folder
-        shutil.move(path.split("\\")[-1].split("ent")[0] + "pka", propka_path.replace("/", "/pdb"))
+        shutil.move(path.split("\\")[-1].split("ent")[0] + "pka", propka_path)
         return i
 
 # CYSTEINE SPECIFIC, MAKE NON CYSTEINE SPECIFIC
@@ -1883,7 +1918,7 @@ def readpropka(filepath): #reads a propka file, saving the cysteines
             for pkaline in pkadatareader:
                 pkaline = [entry for entry in pkaline if entry != '']
                 pkadata.append(pkaline)
-    except:
+    except FileNotFoundError:
         print(filepath, "not found")
 
     if found:
