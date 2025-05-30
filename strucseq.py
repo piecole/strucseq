@@ -1048,6 +1048,9 @@ def get_equivalentresidue(resnum : int,
         and ends of the sequence. Must be one character. The default is "!".
     pass_nan : bool, optional
         Whether to pass or raise an exception when given nan in the sequences
+    write_errors : bool, optional
+        Whether to write errors to a file. Should be thread-safe as long as this is False.
+        The default is False.
     debug : bool, optional
         Whether a message should be printed when failing to find a residue. The default is True.
 
