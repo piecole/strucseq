@@ -1027,6 +1027,7 @@ def get_equivalentresidue(resnum : int,
                           flanknum : int = 5,
                           placeholder : str = "!",
                           pass_nan : bool = True,
+                          write_errors = False,
                           debug : bool = False) -> list:
     """
     Takes the specified residue from sequence 1 and uses alignment to get its number
@@ -1102,8 +1103,9 @@ def get_equivalentresidue(resnum : int,
             print("Extracted flanking sequences:", extract)
     except:
         failed = True
-        with open("converting regions errors.csv", "a+") as f:
-            f.write(f"No residue {resnum} in {seq1} to convert to {seq2}\r")
+        if write_errors == True:
+            with open("converting regions errors.csv", "a+") as f:
+                f.write(f"No residue {resnum} in {seq1} to convert to {seq2}\r")
 
     if failed == False:
         #   Turn seq2 into a dictionary of its relevent residues
