@@ -18,6 +18,7 @@ from Bio.Blast import NCBIXML
 from Bio.PDB.NeighborSearch import NeighborSearch
 import asyncio
 from functools import wraps
+import threading
 
 try:
     import propka.run as pk
@@ -46,6 +47,9 @@ threeletter = ["ALA","DCY","CYS","ASP","GLU","PHE","GLY","HIS","ILE","JXX",
                "LYS","LEU","MET","ASN","OXX","PRO","GLN","ARG","SER","THR",
                "MSE","VAL","TRP","TPO","TYR","SEP"]
 threetoone = dict(zip(threeletter, alphabet))
+
+# Lock for thread-safe file writing in get_equivalentresidue
+_get_equivalent_residue_file_lock = threading.Lock()
 
 # Fix forward slashes in filepaths and create missing folders
 def parse_folder(input_folder : str):
@@ -1104,11 +1108,18 @@ def get_equivalentresidue(resnum : int,
                                placeholder)[resnum]
         if debug == True:
             print("Extracted flanking sequences:", extract)
-    except:
+    except IndexError: # Catch specific error for residue not found
         failed = True
         if write_errors == True:
-            with open("converting regions errors.csv", "a+") as f:
-                f.write(f"No residue {resnum} in {seq1} to convert to {seq2}\r")
+            with _get_equivalent_residue_file_lock:
+                with open("converting_regions_errors.csv", "a+") as f:
+                    f.write(f"No residue {resnum} in {seq1} to convert to {seq2}\\r")
+    except Exception as e: # Catch other potential errors from get_residues
+        failed = True
+        if write_errors == True:
+            with _get_equivalent_residue_file_lock:
+                with open("converting_regions_errors.csv", "a+") as f:
+                    f.write(f"Error extracting residue {resnum} from {seq1} for {seq2}: {e}\\r")
 
     if failed == False:
         #   Turn seq2 into a dictionary of its relevent residues
