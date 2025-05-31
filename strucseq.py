@@ -1481,7 +1481,8 @@ def get_uniprot_sequence(unicode : str,
                          pass_no_output = True,
                          debug : bool = False,
                          max_retries : int = 3,
-                         timeout : int = 30) -> str:
+                         timeout : int = 30,
+                         session : requests.Session = None) -> str:
     """
     When given a uniprot accession code will return the sequence of the protein.
 
@@ -1505,6 +1506,10 @@ def get_uniprot_sequence(unicode : str,
     str
         Sequence of protein to which uniprot accession was given.
     """
+
+    if session is None:
+        session = requests
+
     # Check exceptions with the inputs
     for i in [pass_nan, pass_no_output, debug]:
         assert isinstance(i, bool), "get_uniprot_sequence() options must be bools, found " + repr(type(i))
@@ -1520,7 +1525,7 @@ def get_uniprot_sequence(unicode : str,
         retries = 0
         while retries < max_retries:
             try:
-                response = requests.get(
+                response = session.get(
                     "https://rest.uniprot.org/uniprotkb/" + unicode + ".fasta",
                     timeout=timeout
                 )
@@ -1534,12 +1539,10 @@ def get_uniprot_sequence(unicode : str,
                 if retries == max_retries:
                     if debug:
                         print(f"Failed to fetch sequence for {unicode} after {max_retries} attempts")
-                    if pass_no_output:
-                        return ""
-                    raise Exception(f"Failed to fetch sequence for {unicode} after {max_retries} attempts: {str(e)}")
+                    raise ConnectionError(f"Failed to fetch sequence for {unicode} after {max_retries} attempts") from e
                 if debug:
-                    print(f"Attempt {retries} failed, retrying in {2**retries} seconds...")
-                time.sleep(2**retries)  # Exponential backoff
+                    print(f"Attempt {retries} failed, retrying in {4**retries} seconds...")
+                time.sleep(4**retries)  # Exponential backoff
             except requests.exceptions.HTTPError as e:
                 if debug:
                     print(f"HTTP error for {unicode}: {str(e)}")
