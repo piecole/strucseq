@@ -8,17 +8,16 @@ import shutil
 import csv
 import re
 import statistics as stats
+import asyncio
+import threading
 import requests
 from bs4 import BeautifulSoup
 import pandas as pd
 import numpy as np
-from Bio.PDB import *
+from Bio.PDB import PDBParser, Structure, HSExposureCA, HSExposure
 from Bio.Blast import NCBIWWW
 from Bio.Blast import NCBIXML
 from Bio.PDB.NeighborSearch import NeighborSearch
-import asyncio
-from functools import wraps
-import threading
 
 try:
     import propka.run as pk
@@ -373,11 +372,11 @@ def get_uniprot_details(unicode : str, debug = False) -> dict:
             # If successful break out of while loop
             break
         except (ConnectionResetError,
-                requests.exceptions.ProtocolError,
+                TimeoutError,
                 requests.exceptions.ConnectionError,
                 requests.exceptions.SSLError):
             tries += 1
-            print(f"Connection error while fetching uniprot data, waiting {tries**2} seconds before retrying...")
+            print(f"Connection error while fetching uniprot data for {unicode}, waiting {tries**2} seconds before retrying...")
             time.sleep(tries**2)
     else:
         print("Failed to fetch uniprot data repeatedly.")
@@ -578,6 +577,8 @@ def iterate_uniprot_details_OLD(in_csv : str, out_csv : str, uniprot_csv : str =
     if uniprot_csv != None:
         uniprotdata = pd.read_csv(uniprot_csv, delimiter = "\t")
 
+
+
     chains = ["a", "b"]
     #   Combines the known uniprot accessions into the screen product dataframe
     for chain in chains: #  Adds the uniprot based on on 'a chain' then 'b chain'
@@ -618,26 +619,46 @@ def iterate_uniprot_details_OLD(in_csv : str, out_csv : str, uniprot_csv : str =
     testset["uniprot"] = "Q13426"
     dataset = pd.DataFrame(columns = testset.keys()) #creates a new empty dataframe with those columns
 
+    if os.path.exists("fetched_uniprot_details.pkl"):
+        fetched_uniprot_details = pd.read_pickle("fetched_uniprot_details.pkl")
+    else:
+        fetched_uniprot_details = pd.DataFrame(columns = testset.keys())
+
+    pbar = tqdm(uniqueuniprots.iterrows(),
+                total = uniqueuniprots.shape[0],
+                desc = "Iterating through uniprot site for uniprot details.")
+
     #iterates through the uniprots and gets the extra information from the internet added to the new dataset dataframe
     dex = 0
-    for index, row in tqdm(uniqueuniprots.iterrows(), total = uniqueuniprots.shape[0]): #iterates through the unique uniprots
+    for index, row in pbar: #iterates through the unique uniprots
+        pbar.set_description(f"Iterating through uniprot site for uniprot details, currently {row['uniprot']}")
         #print(dex, "/", uniqueuniprots.size) #indicates the progress
         dex = dex + 1
 
         if len(row["uniprot"]) > 4: # Check the uniprot code is valid
-            # Get uniprot information as a dictionary
-            newinfo = get_uniprot_details(row["uniprot"])
-            # Add the uniprot accession code to that dictionary
-            newinfo["uniprot"] = row["uniprot"]
+            if row["uniprot"] in fetched_uniprot_details["uniprot"].values:
+                newinfo = fetched_uniprot_details[fetched_uniprot_details["uniprot"] == row["uniprot"]].iloc[0].to_dict()
+            else:
+                # Get uniprot information as a dictionary
+                newinfo = get_uniprot_details(row["uniprot"])
+                newinfo["uniprot"] = row["uniprot"]
+                fetched_uniprot_details = pd.concat([fetched_uniprot_details, pd.DataFrame([newinfo])], ignore_index = True)
+
             # Create a 1 row dataframe of that dictionary, with the keys as the columns
             for i in newinfo:
                 print(f"{i}: {newinfo[i]}")
             newinfo = pd.DataFrame([newinfo],  columns = newinfo.keys())
             # Combine that with the previously constructed dataframe
             dataset = pd.concat([dataset, newinfo], ignore_index = True) # adds 1 row to the dataset dataframe
+
+            if index % 100 == 0:
+                fetched_uniprot_details.to_pickle("fetched_uniprot_details.pkl")
+
         else:
             if debug:
                 print("not a uniprot accession:", row["uniprot"])
+
+        fetched_uniprot_details.to_pickle("fetched_uniprot_details.pkl")
 
 
     #convert species column into dictionary for better access
@@ -756,24 +777,41 @@ def iterate_uniprot_details(in_csv : str,
     testset["uniprot"] = "Q13426"
     dataset = pd.DataFrame(columns = testset.keys()) #creates a new empty dataframe with those columns
 
+    # Load already fetched uniprot details
+    if os.path.exists("fetched_uniprot_details.pkl"):
+        fetched_uniprot_details = pd.read_pickle("fetched_uniprot_details.pkl")
+    else:
+        fetched_uniprot_details = pd.DataFrame(columns = testset.keys())
+
     # Iterates through the uniprots and gets the extra information from
     # the internet added to the new dataset dataframe
     dex = 0
-    for index, row in tqdm(uniqueuniprots.iterrows(),
-                           total = uniqueuniprots.shape[0],
-                           desc = "Iterating through uniprot site for uniprot details."): #iterates through the unique uniprots
-        #print(dex, "/", uniqueuniprots.size) #indicates the progress
+    pbar = tqdm(uniqueuniprots.iterrows(),
+                total = uniqueuniprots.shape[0],
+                desc = "Iterating through uniprot site for uniprot details.")
+    for index, row in pbar: #iterates through the unique uniprots
+        pbar.set_description(f"Iterating through uniprot site for uniprot details, currently {row['uniprot']}")
         dex = dex + 1
 
         if len(row["uniprot"]) > 4:
-            newinfo = get_uniprot_details(row["uniprot"]) #gets uniprot information as a dictionary
-            newinfo["uniprot"] = row["uniprot"] #adds the uniprot accession code to that dictionary
+            if row["uniprot"] in fetched_uniprot_details["uniprot"].values:
+                pbar.set_description(f"Already have uniprot details for {row['uniprot']}")
+                newinfo = fetched_uniprot_details[fetched_uniprot_details["uniprot"] == row["uniprot"]].iloc[0].to_dict()
+            else:
+                newinfo = get_uniprot_details(row["uniprot"])
+                newinfo["uniprot"] = row["uniprot"]
+                fetched_uniprot_details = pd.concat([fetched_uniprot_details, pd.DataFrame([newinfo])], ignore_index = True)
             #creates a 1 row dataframe of that dictionary, with the keys as the columns
             newinfo = pd.DataFrame([newinfo],  columns = newinfo.keys())
             dataset = pd.concat([dataset, newinfo], ignore_index = True) # adds 1 row to the dataset dataframe
+
+            if index % 100 == 0:
+                fetched_uniprot_details.to_pickle("fetched_uniprot_details.pkl")
         else:
             if debug:
                 print("not a uniprot accession:", row["uniprot"])
+
+    fetched_uniprot_details.to_pickle("fetched_uniprot_details.pkl")
 
 
     #convert species column into dictionary for better access
