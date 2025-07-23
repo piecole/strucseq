@@ -1528,7 +1528,10 @@ def convert_regions(regions : dict,
 def get_uniprot_sequence(unicode : str,
                          pass_nan : bool = True,
                          pass_no_output = True,
-                         debug : bool = False) -> str:
+                         debug : bool = False,
+                         max_retries : int = 3,
+                         timeout : int = 30,
+                         session : requests.Session = None) -> str:
     """
     When given a uniprot accession code will return the sequence of the protein.
 
@@ -1542,13 +1545,20 @@ def get_uniprot_sequence(unicode : str,
         If false, output of "" will raise exception.
     debug : bool, optional
         Should this function print as it goes.
+    max_retries : int, optional
+        Maximum number of retry attempts for failed requests. Default is 3.
+    timeout : int, optional
+        Timeout duration in seconds for the request. Default is 30.
 
     Returns
     -------
     str
-        Seqeuence of protein to which uniprot accession was given.
-
+        Sequence of protein to which uniprot accession was given.
     """
+
+    if session is None:
+        session = requests
+
     # Check exceptions with the inputs
     for i in [pass_nan, pass_no_output, debug]:
         assert isinstance(i, bool), "get_uniprot_sequence() options must be bools, found " + repr(type(i))
@@ -1558,9 +1568,36 @@ def get_uniprot_sequence(unicode : str,
         assert isinstance(unicode, str), "Expected string or nan for unicode, got '" + repr(unicode) + "', which is " + repr(type(unicode))
 
         # Fetch the sequence of the accession given
-        if debug == True: print("getting", "https://rest.uniprot.org/uniprotkb/" + unicode + ".fasta")
-        soup = requests.get("https://rest.uniprot.org/uniprotkb/" + unicode + ".fasta").text
-        output = "".join(soup.split("\n")[1:-1])
+        if debug == True: 
+            print("getting", "https://rest.uniprot.org/uniprotkb/" + unicode + ".fasta")
+        
+        retries = 0
+        while retries < max_retries:
+            try:
+                response = session.get(
+                    "https://rest.uniprot.org/uniprotkb/" + unicode + ".fasta",
+                    timeout=timeout
+                )
+                response.raise_for_status()  # Raise exception for bad status codes
+                output = "".join(response.text.split("\n")[1:-1])
+                break
+            except (requests.exceptions.Timeout,
+                    requests.exceptions.ConnectionError,
+                    requests.exceptions.ReadTimeout) as e:
+                retries += 1
+                if retries == max_retries:
+                    if debug:
+                        print(f"Failed to fetch sequence for {unicode} after {max_retries} attempts")
+                    raise ConnectionError(f"Failed to fetch sequence for {unicode} after {max_retries} attempts") from e
+                if debug:
+                    print(f"Attempt {retries} failed, retrying in {4**retries} seconds...")
+                time.sleep(4**retries)  # Exponential backoff
+            except requests.exceptions.HTTPError as e:
+                if debug:
+                    print(f"HTTP error for {unicode}: {str(e)}")
+                if pass_no_output:
+                    return ""
+                raise
 
         # If pass_no_output = False then raise an exception if the output is ""
         if pass_no_output == False and output == "":
@@ -1571,7 +1608,9 @@ def get_uniprot_sequence(unicode : str,
             print(f"No sequence found for {unicode}.")
         return output
     else: # If input was nan and pass_nan = True then print this message
-        if debug == True: print("Given nan as unicode to function get_uniprot_sequence().")
+        if debug == True:
+            print("Given nan as unicode to function get_uniprot_sequence().")
+        return ""
 
 def plusminusorNaN(input, separator):
     """
