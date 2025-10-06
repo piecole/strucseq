@@ -106,7 +106,7 @@ get_hydrophobic7 = { # All the amino acid hydrophobicities at pH7
     "DCY":49 # R-cysteine same as L cysteine
 }
 
-def get_uniprot_accessions(pdb_id : str) -> dict:
+def get_uniprot_accessions(pdb_id: str) -> dict:
     """
     Fetches the UniProt-to-chain mappings for a given PDB ID from the PDBe API.
 
@@ -117,36 +117,41 @@ def get_uniprot_accessions(pdb_id : str) -> dict:
 
     Returns
     -------
-    dict: A dictionary containing the mappings of UniProt IDs to chain IDs and residue ranges.
-            Returns None if an error occurs.
+    dict: A dictionary containing the mappings of UniProt IDs to chain IDs.
+          Returns an empty dict if no mapping or an error occurs.
     """
-    # Ensure the PDB ID is in lowercase
-    pdb_id = pdb_id.lower()
+    import requests
+
+    # Normalise the PDB ID
+    pdb_id = pdb_id.strip().upper()
 
     # Construct the API URL
     url = f'https://www.ebi.ac.uk/pdbe/api/mappings/uniprot/{pdb_id}'
 
-    # Make the HTTP GET request
-    response = requests.get(url)
-    response.raise_for_status()  # Raises HTTPError for bad responses
+    try:
+        response = requests.get(url, timeout=20)
+        if response.status_code == 404:
+            # No mapping available (common for antibody Fabs etc.)
+            return {"none" : "none"}
+        response.raise_for_status()
+    except requests.RequestException as e:
+        print(f"Warning: could not fetch UniProt mapping for {pdb_id}: {e}")
+        return {}
 
-    # Parse the JSON response
     data = response.json()
-
-    # Initialize an empty dictionary to store the chain-to-UniProt mapping
     chain_to_uniprot = {}
 
     # Extract the UniProt mappings
-    for pdb_id, pdb_data in data.items():
+    for pdb_id_key, pdb_data in data.items():
         uniprot_entries = pdb_data.get('UniProt', {})
         for uniprot_code, uniprot_data in uniprot_entries.items():
-            mappings = uniprot_data.get('mappings', [])
-            for mapping in mappings:
+            for mapping in uniprot_data.get('mappings', []):
                 chain_id = mapping.get('chain_id')
                 if chain_id:
                     chain_to_uniprot[chain_id] = uniprot_code
 
     return chain_to_uniprot
+
 
 
 #   OLD VERSION OF THE FUNCTION:
@@ -206,11 +211,13 @@ def iterate_uniprot_accessions_OLD(in_csv : str,
 
             chaindetails = {}
             tries = 0
-            while tries < 3 and not chaindetails: # If no details are returned,
+            while tries < 10 and chaindetails == {}: # If no details are returned,
                                                   # try a couple more times
                 # This is because sometimes no details are returned when there
                 # should be some, probably due to anti-scraping measures
                 chaindetails = get_uniprot_accessions(PDBcode)
+                if chaindetails == {}:
+                    time.sleep(2**tries)
                 tries = tries + 1
 
             if debug:
@@ -242,7 +249,7 @@ def iterate_uniprot_accessions(in_csv : str,
                                debug = True):
     """
     Takes an input CSV with a PDBid header and specified custom header(s) to get the
-    uniprot ID of the chains and saves a CSV with the assession codes and unique structures
+    uniprot ID of the chains and saves a CSV with the accession codes and unique structures
     and chains.
 
     Parameters
@@ -258,7 +265,7 @@ def iterate_uniprot_accessions(in_csv : str,
     delimiter : str, optional
         Delimiter of the CSV file
     debug : bool, optional
-        Whether to print progess or other notifications
+        Whether to print progress or other notifications
 
     """
 
@@ -268,7 +275,7 @@ def iterate_uniprot_accessions(in_csv : str,
         fetched_chains = list(previous_file["PDB"].drop_duplicates())
         if debug:
             print("already got:", fetched_chains)
-    except:
+    except FileNotFoundError:
         previous_file = pd.DataFrame()
         fetched_chains = []
         if debug:
@@ -290,27 +297,28 @@ def iterate_uniprot_accessions(in_csv : str,
 
     uniquePDBs = uniquechains["PDBid"].drop_duplicates().reset_index(drop = True)
 
-    uniprotpd = pd.DataFrame({"PDB" : [], "chain": [], "uniprot": []})
+    uniprot_file_columns = ["PDB", "chain", "uniprot"]
+    uniprotpd = pd.DataFrame({col : [] for col in uniprot_file_columns})
     e = 0
 
     pbar = tqdm(np.setdiff1d(list(uniquePDBs), fetched_chains))
-    for PDBcode in pbar:
+    for index, PDBcode in enumerate(pbar):
         pbar.set_description("Getting uniprot accessions: " + PDBcode)
 
         chaindetails = {}
         tries = 0
-        while tries < 3 and not chaindetails: # If no details are returned,
+        while tries < 14 and chaindetails == {}: # If no details are returned,
                                               # try a couple more times
             # This is because sometimes no details are returned when there
             # should be some, probably due to anti-scraping measures
             chaindetails = get_uniprot_accessions(PDBcode)
             tries = tries + 1
-
-        if debug:
-            if tries == 3:
-                print("no accessions found")
-            if 1 < tries < 3:
-                print("found accessions in", str(tries), "tries.")
+            if chaindetails == {}:
+                time.sleep(2**tries)
+        
+        if tries == 14:
+            print(f"No accessions found for {PDBcode}")
+            raise ConnectionError(f"No accessions found for {PDBcode}")
         if debug:
             print(chaindetails)
 
@@ -319,14 +327,26 @@ def iterate_uniprot_accessions(in_csv : str,
             uniprotpd.loc[e] = [PDBcode, letter, chaindetails[letter]]
             e = e + 1
 
+        if index % 1000 == 0:
+            previous_file = pd.concat([uniprotpd, previous_file], ignore_index = True)
+            print(f"Saving {len(uniprotpd)} rows to {out_csv}")
+            try:
+                previous_file.to_csv(out_csv, sep=delimiter, index = False)
+            except:
+                if debug:
+                    print("Failed save, using utf-8 instead.")
+                previous_file.to_csv(out_csv, sep=delimiter, encoding='utf-8', index = False)
 
-    uniprotpd = pd.concat([uniprotpd, previous_file])
+            uniprotpd = pd.DataFrame({col : [] for col in uniprot_file_columns})
+
+    previous_file = pd.concat([uniprotpd, previous_file], ignore_index = True)
+    print(f"Saving {len(uniprotpd)} rows to {out_csv}")
     try:
-        uniprotpd.to_csv(out_csv, sep=delimiter, index = False)
+        previous_file.to_csv(out_csv, sep=delimiter, index = False)
     except:
         if debug:
             print("Failed save, using utf-8 instead.")
-        uniprotpd.to_csv(out_csv, sep=delimiter, encoding='utf-8', index = False)
+        previous_file.to_csv(out_csv, sep=delimiter, encoding='utf-8', index = False)
 
 def get_uniprot_details(unicode : str, debug = False) -> dict:
     """
@@ -1429,6 +1449,7 @@ def int_or_nan(intended_integer):
     except:
         return np.nan
 
+
 def convert_regions(regions : dict,
                     seq1 : str,
                     seq2,
@@ -2502,6 +2523,8 @@ def get_structure_sequences(structure):
             sequences[chain.id] = sequence
     return sequences
 
+import copy
+
 def get_res_HSE_structure(structure,
                             chain1,
                             resn1,
@@ -2516,15 +2539,17 @@ def get_res_HSE_structure(structure,
     if isinstance(model, Structure.Structure):
         model = structure[0]
 
+    model = copy.deepcopy(model)
+
     # Creating feature that speeds up HSE algorithm by removing
     # distant CA atoms before calculating.
     if fast == True:
         save_atoms = []
         # Iterate through every atom, adding them to save_atoms
         # if they are near the relevent one or two.
-        for chain in model:
-            for res in chain:
-                for atom in res:
+        for chain in list(model):
+            for res in list(chain):
+                for atom in list(res):
                     try:
                         if debug:
                             print("Measuring", atom)
