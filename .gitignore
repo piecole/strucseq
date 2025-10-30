@@ -12,3 +12,5 @@ propka/
 *.txt
 *.csv
 *.pkl
+
+!requirements.txt
