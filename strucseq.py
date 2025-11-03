@@ -1747,11 +1747,17 @@ def get_alphafold_structure(uniprot_code : str,
             print("Already have structure for " + uniprot_code + ".")
         return
 
+    if extension == "ent":
+        # ent is not supported, but is the same file type as pdb anyway.
+        extension = "pdb"
+
     # Get the structure
     if not silent:
         print("Downloading structure for " + uniprot_code + " from AlphaFold. Please cite: ")
         print("Jumper, J., Evans, R., Pritzel, A. et al. Highly accurate protein structure prediction with AlphaFold. Nature 596, 583–589 (2021). https://doi.org/10.1038/s41586-021-03819-2")
-    url = "https://alphafold.ebi.ac.uk/files/AF-" + uniprot_code + "-F1-model_v4.pdb"
+    url = "https://alphafold.ebi.ac.uk/files/AF-" + uniprot_code + f"-F1-model_v6.{extension}"
+    if debug:
+        print("Downloading structure from: " + url)
     data = requests.get(url, allow_redirects=True)
 
     if "NoSuchKey" in str(data.content):
