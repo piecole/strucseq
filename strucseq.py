@@ -962,6 +962,7 @@ def get_flanking_info(PDB_file : str,
                         try:
                             flanks.append(chain_sequences[chain][index + offset])
                         except IndexError:
+                            # If you reach the end of the chain, need to add a placeholder
                             flanks.append("!")
                     pKas = []
                     hyd = []
