@@ -945,7 +945,7 @@ def get_flanking_info(PDB_file : str,
         else:
             # Reset file position in case PDBParser consumed part of the file
             try:
-                structure = MMCIFParser().get_structure("struc", unzipped)
+                structure = MMCIFParser(QUIET = not debug).get_structure("struc", unzipped)
             except ValueError as e:
                 raise ValueError(f"Failed to parse structure from '{PDB_file}': {e}") from e
 
@@ -959,7 +959,10 @@ def get_flanking_info(PDB_file : str,
                 if residue == threetoone[amino_acid]:
                     flanks = []
                     for offset in range(-5, 6):
-                        flanks.append(chain_sequences[chain][index + offset])
+                        try:
+                            flanks.append(chain_sequences[chain][index + offset])
+                        except IndexError:
+                            flanks.append("!")
                     pKas = []
                     hyd = []
                     charge = []
