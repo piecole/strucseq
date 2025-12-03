@@ -60,8 +60,7 @@ def parse_folder(input_folder : str):
         input_folder = input_folder + "/"
 
     # Create missing folder
-    if not os.path.exists(input_folder):
-        os.makedirs(input_folder)
+    os.makedirs(input_folder, exist_ok=True)
 
     return input_folder
 
