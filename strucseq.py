@@ -14,7 +14,7 @@ import requests
 from bs4 import BeautifulSoup
 import pandas as pd
 import numpy as np
-from Bio.PDB import PDBParser, Structure, HSExposureCA, HSExposure
+from Bio.PDB import PDBParser, Structure, HSExposureCA, HSExposure, MMCIFParser, PDBIO
 from Bio.Blast import NCBIWWW
 from Bio.Blast import NCBIXML
 from Bio.PDB.NeighborSearch import NeighborSearch
@@ -245,7 +245,8 @@ def iterate_uniprot_accessions(in_csv : str,
                                chain_cols,
                                out_csv : str,
                                delimiter = "\t",
-                               debug = True):
+                               debug = True,
+                               return_non_pdb_codes = False):
     """
     Takes an input CSV with a PDBid header and specified custom header(s) to get the
     uniprot ID of the chains and saves a CSV with the accession codes and unique structures
@@ -310,11 +311,14 @@ def iterate_uniprot_accessions(in_csv : str,
                                               # try a couple more times
             # This is because sometimes no details are returned when there
             # should be some, probably due to anti-scraping measures
-            chaindetails = get_uniprot_accessions(PDBcode)
+            if return_non_pdb_codes and len(PDBcode) != 4:
+                chaindetails = {"A" : PDBcode}
+            else:
+                chaindetails = get_uniprot_accessions(PDBcode)
             tries = tries + 1
             if chaindetails == {}:
                 time.sleep(2**tries)
-        
+
         if tries == 14:
             print(f"No accessions found for {PDBcode}")
             raise ConnectionError(f"No accessions found for {PDBcode}")
@@ -865,6 +869,10 @@ def extract_chain_sequences_from_structure(structure: Structure):
         # Pre-allocate list with correct size
         res_list = ['!'] * length
 
+        # Track which insertion codes we've seen per residue number, so we can resort to the
+        # lowset one.
+        used_icodes = {}
+
         # Process only non-water residues
         for residue in chain:
             pos = residue.id[1] - 1
@@ -875,6 +883,13 @@ def extract_chain_sequences_from_structure(structure: Structure):
             if resname == 'HOH':
                 continue
 
+            # Get icode (blank if none)
+            icode = residue.id[2].strip() or ' '
+            # Choose the most default (lowest) icode if duplicates exist
+            if pos in used_icodes and icode > used_icodes[pos]:
+                continue
+            used_icodes[pos] = icode
+
             try:
                 res_list[pos] = threetoone.get(resname, '!')
             except IndexError:
@@ -883,6 +898,12 @@ def extract_chain_sequences_from_structure(structure: Structure):
 
         chain_sequences[chain.id] = ''.join(res_list)
     return chain_sequences
+
+def gzip_agnostic_open(file_path : str, mode : str = "rt"):
+    if file_path.endswith(".gz"):
+        return gzip.open(file_path, mode)
+    else:
+        return open(file_path, mode)
 
 def get_flanking_info(PDB_file : str,
                       amino_acid : str,
@@ -913,39 +934,34 @@ def get_flanking_info(PDB_file : str,
     assert isinstance(PDB_file, str), "str expected for PDB_file, found '" + repr(PDB_file) + "' which is " + repr(type(PDB_file))
     assert isinstance(debug, bool), "bool expected for debug, found " + repr(type(debug))
 
+    # Make filepath system-agnostic
+    PDB_file = PDB_file.replace(os.sep, "/")
+
     cysteine_list = []
-    with gzip.open(PDB_file.encode("unicode_escape"), "rt") as unzipped: #open the structure
-        try:
+    with gzip_agnostic_open(PDB_file) as unzipped: #open the structure
+        if ".cif" not in PDB_file:
             structure = PDBParser(QUIET = not debug).get_structure("struc", unzipped) #parse the structure
-        except OSError:
-            raise Exception(f"Failed to parse structure from '{PDB_file}'.")
+        else:
+            # Reset file position in case PDBParser consumed part of the file
+            try:
+                structure = MMCIFParser(QUIET = not debug).get_structure("struc", unzipped)
+            except ValueError as e:
+                raise ValueError(f"Failed to parse structure from '{PDB_file}': {e}") from e
 
-        chain_sequences = {}
-        for chain in structure[0]: #iterate through chains
-            realreslist = [] #make a list to store the residues in a chain
-            length = max([i.id[1] for i in chain]) #determine how long the chain actually is, ignoring gaps
-            res_list = ["!" for i in range(length)] #creating reslist by starting with blank ! marks
-            for index, residue in enumerate(chain):
-                #populating realreslist
-                residue.newresnum = index
-                realreslist.append(residue)
+        
+        if 0 not in structure:
+            raise ValueError(f"Structure {PDB_file} has no model 0: ({[x for x in structure]})")
+        chain_sequences = extract_chain_sequences_from_structure(structure)
 
-                #populating res_list, which has gaps
-                resname = residue.get_resname()
-                try:
-                    if resname != "HOH" and residue.id[1] >= 0: #check residue is not water and has a seq number of 0 or more
-                        res_list[residue.id[1] -1] = threetoone[resname] #compile chain sequence
-                except:
-                    if debug:
-                        print("res list:", res_list, "residue:", residue)
-                    res_list[residue.id[1] -1] = "!" #otherwise add exclamation marks
-            for residue in realreslist:
-                if residue.get_resname() == amino_acid:
+        for chain in chain_sequences:
+            for index, residue in enumerate(chain_sequences[chain]):
+                if residue == threetoone[amino_acid]:
                     flanks = []
                     for offset in range(-5, 6):
                         try:
-                            flanks.append(threetoone[realreslist[residue.newresnum + offset].get_resname()])
-                        except:
+                            flanks.append(chain_sequences[chain][index + offset])
+                        except IndexError:
+                            # If you reach the end of the chain, need to add a placeholder
                             flanks.append("!")
                     pKas = []
                     hyd = []
@@ -963,15 +979,14 @@ def get_flanking_info(PDB_file : str,
                             charge.append(get_charge[flank])
                         except:
                             charge.append("")
-                    cysteine_list.append({"PDBid" : PDB_file.split("pdb")[-1].split(".ent")[0],
-                                          "chain" : chain.id,
-                                          "residue" : residue.id[1],
+                    cysteine_list.append({"PDBid" : PDB_file.split("pdb")[-1].split(".")[0].split("/")[-1],
+                                          "chain" : chain,
+                                          "residue" : index + 1,
                                           "flanking residues" : flanks,
                                           "flanking pKas" : pKas,
                                           "flanking hydrophobicities": hyd,
                                           "flanking charges at pH 7": charge})
 
-            chain_sequences[chain.id] = "".join(res_list) #join the res_list compiled previously into strings add to a dictionary with the chain letters as keys
 
     newdata = pd.DataFrame() #new empty dataframe to start building
     for cysteine in cysteine_list:
@@ -983,7 +998,13 @@ def get_flanking_info(PDB_file : str,
                     pdrow[str(i - 5) + " " + section] = cysteine[section][i] #adds each bit of information on the list as its own column in the empty dataframe, so there is one row
                     addlettersto.append(str(i - 5) + " " + section)
         newdata = pd.concat([newdata, pdrow], ignore_index = True).reset_index(drop = True) #concats this new row into a dataframe to build it
-    #print(chain_sequences)
+    
+    # Check that the outputs are correct
+    if not isinstance(newdata, pd.DataFrame):
+        raise ValueError(f"Output newdata is not a DataFrame, got {repr(newdata)} which is of type {type(newdata)}")
+    if not isinstance(chain_sequences, dict):
+        raise ValueError(f"Output chain_sequences is not a dict, got {repr(chain_sequences)} which is of type {type(chain_sequences)}")
+    
     return newdata, chain_sequences #output the flanking info as a new dataframe for each cysteine, output the chain sequences as a dicitonary
 
 def get_residues(residue : str,
@@ -1126,7 +1147,7 @@ def get_equivalentresidue(resnum : int,
     sq.get_equivalentresidue(165, "MERKISRIHLVSEPSITHFLQVSWEKTLESGFVITLTDGHSAWTGTVSESEISQEADDMAMEKGKYVGELRKALLSGAGPADVYTFNFSKESCYFFFEKNLKDVSFRLGSFNLEKVENPAEVIRELICYCLDTIAENQAKNEHLQKENERLLRDWNDVQGRFEKCVSAKEALETDLYKRFILVLNEKKTKIRSLHNKLLNAAQEREKDIKQEGETAICSEMTADRDPVYDESTDEESENQTDLSGLASAAVSKDDSIISSLDVTDIAPSRKRRQRMQRNLGTEPKMAPQENQLQEKENSRPDSSLPETSKKEHISAENMSLETLRNSSPEDLFDEI", "WTATVSELEISQEADDMAMEKGKYIDELRKALVPGSGAAGTYKFLFSKESQHFSLEKELKDVSFRLGSFNLDKVSNSAEVIRELICYCLDTITEKQAKNEHLQKENERLLRDWNDVQGRFEKCVSAKEALEADLYQRFILVLNEKKTKIRSLHKLLNEVQQLEESTKPERENPCSDKTPEEHGLYDGSTDEESGAPVQAAETLHKDDSIFSSPDVTDIAPSRKRRHRMQKNLGTEPKMAPQELPLQEKERLASSLPQTLKEESTSAENMSLETLRNSSPEDLFD")
     [123, 11]
 
-    
+
     Returns
     -------
     list
@@ -1305,7 +1326,7 @@ def convert_region(start_sequence: str,
         print(f"start_sequence: {start_sequence}")
         print(f"start_region: {start_region}")
         raise ValueError("end_sequence is an empty string.")
-    
+
     if len(start_sequence) == 0 or len(end_sequence) == 0:
         return {"start" : np.nan, "end": np.nan, "score" : np.nan}
 
@@ -1448,6 +1469,12 @@ def int_or_nan(intended_integer):
     except:
         return np.nan
 
+# Return a tqdm of the literal if the length is greater than default 1000, otherwise return the literal
+def _tqdm_if_long(literal, length = 100, desc = None):
+    if len(literal) > length:
+        return tqdm(literal, desc = desc)
+    else:
+        return literal
 
 def convert_regions(regions : dict,
                     seq1 : str,
@@ -1500,7 +1527,8 @@ def convert_regions(regions : dict,
     #   Iterate through the target sequences.
     new_regions_per_seq2 = {}
 
-    for target_key in seq2:
+    for target_key in _tqdm_if_long(seq2,
+                                    desc = "Converting to large number of sequences"):
         #   Make a dictionary for storing the edited regions
         new_regions = {}
 
@@ -1588,9 +1616,9 @@ def get_uniprot_sequence(unicode : str,
         assert isinstance(unicode, str), "Expected string or nan for unicode, got '" + repr(unicode) + "', which is " + repr(type(unicode))
 
         # Fetch the sequence of the accession given
-        if debug == True: 
+        if debug == True:
             print("getting", "https://rest.uniprot.org/uniprotkb/" + unicode + ".fasta")
-        
+
         retries = 0
         while retries < max_retries:
             try:
@@ -1945,6 +1973,16 @@ def download_structures(structures: list, max_concurrent: int = 5, folder: str =
     """
     asyncio.run(async_download_structures(structures, max_concurrent=max_concurrent, folder=folder, debug=debug))
 
+def write_propka_fail(input_file: str, error_message: str):
+    """
+    Write a propka failure to the propka failed for.txt file.
+    """
+    if not os.path.exists("propka failed for.txt"):
+        with open("propka failed for.txt", "w", encoding="utf-8") as file:
+            file.write("")
+    with open("propka failed for.txt", "a", encoding="utf-8") as file:
+        file.write(input_file + "\t" + error_message + "\n")
+
 import propka.run as pk
 
 def run_propka(input_file,
@@ -1978,6 +2016,7 @@ def run_propka(input_file,
         The propka object. Also saves it to a file.
 
     """
+    
     worked = False
 
     # Check if propka is installed
@@ -1997,33 +2036,78 @@ def run_propka(input_file,
         if not silence:
             print("Going to comput propka for " + input_file + ".")
         structure_folder = parse_folder(structure_folder)
-        paths = glob.glob(structure_folder + "**/" + input_file + "*.*" + structure_extension + "*",
+        paths = glob.glob(structure_folder + "**/" + input_file + ".*",
                           recursive = True)
         if paths == []:
-            raise FileNotFoundError("No structure found with glob '" + structure_folder + "**/" + input_file + "*.*" + structure_extension + "*" + "'.")
-        path = paths[0]
+            raise FileNotFoundError("No structure found with glob '" + structure_folder + "**/" + input_file + ".*")
 
         if not silence:
             print("Calculating pKas with PROPKA and saving to file. Please cite:")
             print("Improved Treatment of Ligands and Coupling Effects in Empirical Calculation and Rationalization of pKa Values. Chresten R. Søndergaard, Mats H. M. Olsson, Michał Rostkowski, and Jan H. Jensen. Journal of Chemical Theory and Computation 2011 7 (7), 2284-2295. DOI: 10.1021/ct200133y")
+            print(f"paths: {paths}")
 
-        try:
-            if "gz" in path:
-                with gzip.open(path, "rt") as unzipped:
-                    i = pk.single(path.split(structure_extension)[0] + "pdb", optargs = ["-q"], stream = unzipped) #perform PROPKA on the file
+        path = paths[0]
+
+        with gzip_agnostic_open(path, "rt") as unzipped:
+            if ".cif" in path:
+                # PROPKA can't use CIF, so this is temporarily processed to PDB format
+                if not silence:
+                    print(f"Converting CIF to PDB for PROPKA: {path}")
+                from io import StringIO
+                try:
+                    structure = MMCIFParser().get_structure("struc", unzipped)
+                except MemoryError as e:
+                    print(f"MemoryError parsing MMCIF file (file too large): {input_file}")
+                    write_propka_fail(input_file, f"MemoryError: Structure too large to parse from CIF")
+                    return
+                buf = StringIO()
+                pdbio = PDBIO()
+                pdbio.set_structure(structure)
+
+                from Bio.PDB.PDBExceptions import PDBIOException
+                try:
+                    pdbio.save(buf)
+                # Exception likely caused by incompatibility of CIF file with converting to PDB
+                # format. e.g. chain is V1 or too long
+                except PDBIOException as e:
+                    print(f"Error saving PDB: {e}")
+                    write_propka_fail(input_file, str(e))
+
+                except MemoryError as e:
+                    print(f"MemoryError saving PDB (structure too large): {input_file}")
+                    write_propka_fail(input_file, f"MemoryError: Structure too large to convert to PDB format in memory")
+                    
+                buf.seek(0)
             else:
-                with open(path, "rt") as f:
-                    i = pk.single(path.split(structure_extension)[0] + "pdb", optargs = ["-q"], stream = f)
-            worked = True
-        except:
-            if not silence:
-                print("PROPKA failed for: ", input_file)
-            with open("PROPKA failed for.txt", "a") as file:
-                file.write(input_file + "\r")
+                # If not a CIF can just set the buf to unzipped
+                buf = unzipped
 
-    if worked == True:
+            if silence:
+                optargs = ["-q"]
+            else:
+                optargs = []
+
+            try:
+                # When stream is specified, filename doesn't matter but is just used to infer
+                # structure format
+                i = pk.single(path.split(".")[0] + ".pdb", # Add .pdb to make PROPKA happy
+                              optargs = optargs,
+                              stream = buf) #perform PROPKA on the file
+                worked = True
+            except Exception as e:
+                if not silence:
+                    print("PROPKA failed for: ", input_file)
+                # Create failed file if it doesn't exist
+                write_propka_fail(input_file, str(e))
+
+    if worked:
         # Move the file to propka folder
-        shutil.move(path.split("\\")[-1].split("ent")[0] + "pka", propka_path)
+        try:
+            shutil.move(input_file + ".pka",
+                        propka_path)
+        except FileNotFoundError as e:
+            print(f"Failed to move pka file. path: {input_file + '.pka'}, propka_path: {propka_path}")
+            raise e
         return i
 
 # CYSTEINE SPECIFIC, MAKE NON CYSTEINE SPECIFIC
@@ -2086,8 +2170,12 @@ def readpropka(filepath): #reads a propka file, saving the cysteines
                              ignore_index = True)
 
         #add the PDBid as a column
-        data["PDBid"] = filepath.split("pdb")[-1].split(".pka")[0]
+        pdb_code = filepath.split("/")[-1].split(".pka")[0]
+        if pdb_code.startswith("pdb") and len(pdb_code) > 4:
+            pdb_code = pdb_code[3:]
 
+        data["PDBid"] = pdb_code
+        
         #drop nil
         data = data.drop(columns = ["nil", "resn"])
 
@@ -2265,7 +2353,11 @@ def check_structure_for_proximal_atoms(structure,
     if isinstance(structure, str):
         # Make sure structure file exists
         assert os.path.exists(structure), "Structure file not found."
-        structures = PDBParser(QUIET = quiet).get_structure("structure", structure)
+        try:
+            structures = PDBParser(QUIET = quiet).get_structure("structure", structure)
+        except TypeError:
+            structure.seek(0)
+            structures = MMCIFParser(QUIET = quiet).get_structure("structure", structure)
     else:
         # Make sure structure is a structure
         assert isinstance(structure, Structure.Structure), "Expected Bio.PDB.Structure.Structure for structure, got " + repr(type(structure))
@@ -2531,62 +2623,67 @@ def get_structure_sequences(structure):
 import copy
 
 def get_res_HSE_structure(structure,
-                            chain1,
-                            resn1,
-                            chain2 = None,
-                            resn2 = None,
-                            alternate = False,
-                            only_chains = False,
-                            fast = True,
-                            debug = False):
+                          chain1,
+                          resn1,
+                          chain2 = None,
+                          resn2 = None,
+                          alternate = False,
+                          only_chains = False,
+                          fast = True,
+                          debug = False):
     model = structure
 
     if isinstance(model, Structure.Structure):
-        model = structure[0]
+        try:
+            model = structure[0]
+        except KeyError as e:
+            print(f"Error getting model from structure: {structure}")
+            print(f"Structure contents: '{', '.join([str(model) for model in structure])}'")
+            raise e
 
     model = copy.deepcopy(model)
 
     # Creating feature that speeds up HSE algorithm by removing
     # distant CA atoms before calculating.
-    if fast == True:
-        save_atoms = []
-        # Iterate through every atom, adding them to save_atoms
-        # if they are near the relevent one or two.
-        for chain in list(model):
-            for res in list(chain):
-                for atom in list(res):
-                    try:
-                        if debug:
-                            print("Measuring", atom)
-                        if atom.id == "CA" and atom - model[chain1][resn1]["CA"] < 13:
-                            save_atoms.append(atom)
-                        # If two residues provided, check the other
-                        # as well
-                        if chain2 != None and resn2 != None:
-                            if atom.id == "CA" and atom - model[chain2][resn2]["CA"] < 13:
-                                save_atoms.append(atom)
-                    except:
-                        # Failed to find a target residue
-                        #print(f"Failed to use fast HSE.")
-                        # Stop trying to use feature that speeds up HSE
-                        fast = False
-                        if debug:
-                            print("Failed fast")
-                        break
+    from Bio.PDB import NeighborSearch
 
-        # Iterate through every CA atom, and remove it if it isn't
-        # in save_atoms .
-        if fast == True: # Check that saving proximal CAs worked before removing non-proximal CAs
-            for chain in model:
-                for res in chain:
-                    try:
-                        if res["CA"] not in save_atoms:
-                            chain.detach_child(res.id)
-                    except:
-                        pass
+    # Speed-up: prune distant CA residues using a KD-tree over CA atoms
+    if fast is True:
+        try:
+            target_ca1 = model[chain1][resn1]["CA"]
+            target_ca2 = None
+            if chain2 is not None and resn2 is not None:
+                target_ca2 = model[chain2][resn2]["CA"]
+        except Exception:
+            # Couldn’t resolve one of the target residues → disable fast mode
+            fast = False
+            if debug:
+                print("Failed fast (target CA not found)")
         else:
-            pass
-            #print("Reverting to computing regular HSE.")
+            # Build a neighbor index over all CA atoms once
+            ca_atoms = [a for a in model.get_atoms() if a.id == "CA"]
+            ns = NeighborSearch(ca_atoms)
+
+            # Find CA atoms within 13 Å of the target(s)
+            near1 = ns.search(target_ca1.coord, 13.0, level="A")
+            near2 = ns.search(target_ca2.coord, 13.0, level="A") if target_ca2 is not None else []
+
+            # Decide which residues to keep: key by (chain_id, residue_id) for stable membership tests
+            keep_res_keys = {
+                (a.get_parent().get_parent().id, a.get_parent().id)  # (chain_id, res.id)
+                for a in (near1 + near2)
+            }
+
+            # Prune residues not in the keep set. Iterate over copies since we detach.
+            for chain in list(model):
+                for res in list(chain):
+                    key = (chain.id, res.id)
+                    if key not in keep_res_keys:
+                        try:
+                            chain.detach_child(res.id)
+                        except Exception:
+                            pass
+
 
     # If we want to ignore other chains in the structure when
     # computing HSE
@@ -2632,8 +2729,12 @@ def get_res_HSE_file(PDB_file,
                 fast = True,
                 quiet = True): #get the half sphere exposure of the CA atom of a residue: https://biopython.org/wiki/The_Biopython_Structural_Bioinformatics_FAQ
 
-    with gzip.open(PDB_file, "rt") as unzipped:
-        structure = PDBParser(QUIET = quiet).get_structure("struc", unzipped)
+    with gzip_agnostic_open(PDB_file) as unzipped:
+        try:
+            structure = PDBParser(QUIET = quiet).get_structure("struc", unzipped)
+        except (TypeError, ValueError):
+            unzipped.seek(0)
+            structure = MMCIFParser(QUIET = quiet).get_structure("struc", unzipped)
         return get_res_HSE_structure(structure,
                                 chain1,
                                 resn1,
