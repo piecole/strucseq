@@ -1849,6 +1849,7 @@ def get_PDB_structure(pdb_id : str,
 
 def get_CIF_structure(pdb_id : str,
                       folder : str = "structures",
+                      assembly = "asymetric",
                       strict = True,
                       debug = False):
     """
@@ -1860,6 +1861,8 @@ def get_CIF_structure(pdb_id : str,
         PDB ID of the structure to download.
     folder : str, optional
         Folder to save the structure to. The default is "structures".
+    assembly : str, optional
+        The assembly to download. The default is "asymetric". Can be "biological".
     strict : bool, optional
         Whether to raise an exception if the structure is not found. The default is True.
     debug : bool, optional
@@ -1878,11 +1881,19 @@ def get_CIF_structure(pdb_id : str,
     # Get the structure
     if debug:
         print("Downloading structure for " + pdb_id + " from PDB.")
-    #url = "https://files.rcsb.org/download/" + pdb_id + ".cif"
-
-    url = f"https://files.rcsb.org/download/{pdb_id}-assembly1.cif"
+    
+    if assembly == "biological":
+        url = f"https://files.rcsb.org/download/{pdb_id}-assembly1.cif"
+    elif assembly == "asymetric":
+        url = "https://files.rcsb.org/download/" + pdb_id + ".cif"
+    else:
+        raise ValueError(f"Invalid assembly: {assembly}. Must be 'biological' or 'asymetric'.")
 
     data = requests.get(url, allow_redirects=True)
+
+    if data.status_code == 404:
+        data = requests.get(url, allow_redirects=True)
+
     # Make sure that response was 200
     if data.status_code == 200:
         open(folder + pdb_id + ".cif", 'wb').write(data.content)
@@ -1896,7 +1907,12 @@ def get_CIF_structure(pdb_id : str,
     else:
         raise RuntimeError(f"Unexpected error code '{data.status_code}' for PDB structure for {pdb_id}.")
 
-async def async_download_structure(structure: str, semaphore: asyncio.Semaphore, folder: str = "structures", debug: bool = False, max_retries: int = 3):
+async def async_download_structure(structure: str,
+                                   semaphore: asyncio.Semaphore,
+                                   folder: str = "structures",
+                                   debug: bool = False,
+                                   max_retries: int = 3,
+                                   assembly: str = "asymetric"):
     """
     Asynchronously download a single structure with retry logic.
 
@@ -1911,7 +1927,12 @@ async def async_download_structure(structure: str, semaphore: asyncio.Semaphore,
         retries = 0
         while retries < max_retries:
             try:
-                await asyncio.to_thread(get_CIF_structure, structure, folder=folder, strict=True, debug=debug)
+                await asyncio.to_thread(get_CIF_structure,
+                                        structure,
+                                        folder=folder,
+                                        assembly=assembly,
+                                        strict=True,
+                                        debug=debug)
                 return  # Success
             except FileNotFoundError:
                 print(f"Structure {structure} not found (404)")
@@ -1927,7 +1948,11 @@ async def async_download_structure(structure: str, semaphore: asyncio.Semaphore,
                 print(f"Unexpected error downloading {structure}: {str(e)}")
                 raise
 
-async def async_download_structures(structures: list, max_concurrent: int = 5, folder: str = "structures", debug: bool = False):
+async def async_download_structures(structures: list,
+                                    max_concurrent: int = 5,
+                                    folder: str = "structures",
+                                    debug: bool = False,
+                                    assembly: str = "asymetric"):
     """
     Asynchronously download multiple structures with rate limiting.
     Failed downloads will raise exceptions.
@@ -1939,7 +1964,11 @@ async def async_download_structures(structures: list, max_concurrent: int = 5, f
         debug: Whether to print debug messages
     """
     semaphore = asyncio.Semaphore(max_concurrent)
-    tasks = [async_download_structure(structure, semaphore, folder=folder, debug=debug)
+    tasks = [async_download_structure(structure,
+                                      semaphore,
+                                      folder=folder,
+                                      debug=debug,
+                                      assembly=assembly)
              for structure in structures]
 
     results = {"succeeded": [], "failed": []}
