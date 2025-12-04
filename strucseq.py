@@ -1878,7 +1878,10 @@ def get_CIF_structure(pdb_id : str,
     # Get the structure
     if debug:
         print("Downloading structure for " + pdb_id + " from PDB.")
-    url = "https://files.rcsb.org/download/" + pdb_id + ".cif"
+    #url = "https://files.rcsb.org/download/" + pdb_id + ".cif"
+
+    url = f"https://files.rcsb.org/download/{pdb_id}-assembly1.cif"
+
     data = requests.get(url, allow_redirects=True)
     # Make sure that response was 200
     if data.status_code == 200:
