@@ -12,6 +12,7 @@ import asyncio
 import threading
 import requests
 from bs4 import BeautifulSoup
+from bs4 import exceptions as bs4_exceptions
 import pandas as pd
 import numpy as np
 from Bio.PDB import PDBParser, Structure, HSExposureCA, HSExposure, MMCIFParser, PDBIO
@@ -401,6 +402,10 @@ def get_uniprot_details(unicode : str, debug = False) -> dict:
             tries += 1
             print(f"Connection error while fetching uniprot data for {unicode}, waiting {tries**2} seconds before retrying...")
             time.sleep(tries**2)
+        except bs4_exceptions.FeatureNotFound:
+            raise ModuleNotFoundError(
+                "The module lxml is not installed. Please install it with 'pip install lxml'."
+            )
     else:
         print("Failed to fetch uniprot data repeatedly.")
         soup = BeautifulSoup(requests.get(url).text, "lxml")
