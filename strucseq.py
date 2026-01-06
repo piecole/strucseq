@@ -129,12 +129,20 @@ def get_uniprot_accessions(pdb_id: str) -> dict:
     url = f'https://www.ebi.ac.uk/pdbe/api/mappings/uniprot/{pdb_id}'
 
     try:
-        response = requests.get(url, timeout=20)
+        response = requests.get(url) # Removed the timeout, sometimes it takes AGES but then works
         if response.status_code == 404:
             # No mapping available (common for antibody Fabs etc.)
             return {"none" : "none"}
+
+        tries = 0
+        while response.status_code == 502 and tries < 10:
+            print(f"502 error, trying again in {2**tries}.")
+            time.sleep(2**tries)
+            response = requests.get(url)
+            tries += 1
         response.raise_for_status()
     except requests.RequestException as e:
+        raise Exception(f"Failed to fetch UniProt mapping for {pdb_id}: {e}")
         print(f"Warning: could not fetch UniProt mapping for {pdb_id}: {e}")
         return {}
 
@@ -875,7 +883,7 @@ def extract_chain_sequences_from_structure(structure: Structure):
         res_list = ['!'] * length
 
         # Track which insertion codes we've seen per residue number, so we can resort to the
-        # lowset one.
+        # lowest one.
         used_icodes = {}
 
         # Process only non-water residues
@@ -896,7 +904,9 @@ def extract_chain_sequences_from_structure(structure: Structure):
             used_icodes[pos] = icode
 
             try:
-                res_list[pos] = threetoone.get(resname, '!')
+                # Only overwrite if residue is a placeholder
+                if res_list[pos] == '!':
+                    res_list[pos] = threetoone.get(resname, '!')
             except IndexError:
                 print(f"IndexError: pos={pos}, length={length}, residue={residue}")
                 continue
@@ -1166,12 +1176,12 @@ def get_equivalentresidue(resnum : int,
     #print(seq1, resnum)
 
     #catch input errors
-    assert isinstance(resnum, int), "Expected int for resnum, got " + repr(type(resnum))
-    assert isinstance(pass_nan, bool), "Expected bool for pass_nan, got " + repr(type(pass_nan))
-    assert isinstance(flanknum, int), "Expected int for flanknum, got " + repr(type(flanknum))
-    assert isinstance(placeholder, str), "Expected str for placeholder, got " + repr(type(placeholder))
+    assert isinstance(resnum, int), "Expected int for resnum, got " + repr(resnum) + " which is " + repr(type(resnum))
+    assert isinstance(pass_nan, bool), "Expected bool for pass_nan, got " + repr(pass_nan) + " which is " + repr(type(pass_nan))
+    assert isinstance(flanknum, int), "Expected int for flanknum, got " + repr(flanknum) + " which is " + repr(type(flanknum))
+    assert isinstance(placeholder, str), "Expected str for placeholder, got " + repr(placeholder) + " which is " + repr(type(placeholder))
     assert len(placeholder) == 1, f"Expected single letter string for placeholder, got '{placeholder}'."
-    assert isinstance(debug, bool), "Expected bool for debug, got " + repr(type(debug))
+    assert isinstance(debug, bool), "Expected bool for debug, got " + repr(debug) + " which is " + repr(type(debug))
 
     if pass_nan == False:
         assert isinstance(seq1, str), "Expected str for seq1, got '" + repr(seq1) + "' which is " + repr(type(seq1))
