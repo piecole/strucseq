@@ -135,7 +135,7 @@ def get_uniprot_accessions(pdb_id: str) -> dict:
             return {"none" : "none"}
 
         tries = 0
-        while response.status_code == 502 and tries < 10:
+        while response.status_code == 502 and tries < 100:
             print(f"502 error, trying again in {2**tries}.")
             time.sleep(2**tries)
             response = requests.get(url)
