@@ -1916,8 +1916,7 @@ def get_CIF_structure(pdb_id : str,
         if strict:
             raise FileNotFoundError("PDB structure for " + pdb_id + " not found.")
         else:
-            if debug:
-                print(f"PDB structure for '{pdb_id}' not found.")
+            print(f"PDB structure for '{pdb_id}' not found.")
             return
     else:
         raise RuntimeError(f"Unexpected error code '{data.status_code}' for PDB structure for {pdb_id}.")
@@ -1949,9 +1948,11 @@ async def async_download_structure(structure: str,
                                         strict=True,
                                         debug=debug)
                 return  # Success
-            except FileNotFoundError:
+            except FileNotFoundError as e:
+                # Include the structure ID in the error message for clarity
+                error_msg = f"{structure}: {str(e)}"
                 print(f"Structure {structure} not found (404)")
-                raise  # Don't retry on 404s
+                raise FileNotFoundError(error_msg) from e
             except TimeoutError:
                 retries += 1
                 if retries == max_retries:
@@ -1960,8 +1961,10 @@ async def async_download_structure(structure: str,
                 print(f"Timeout downloading {structure}, retry {retries}/{max_retries}...")
                 await asyncio.sleep(10 * retries)  # Exponential backoff
             except Exception as e:
+                # Include the structure ID in the error message for clarity
+                error_msg = f"{structure}: {str(e)}"
                 print(f"Unexpected error downloading {structure}: {str(e)}")
-                raise
+                raise type(e)(error_msg) from e
 
 async def async_download_structures(structures: list,
                                     max_concurrent: int = 5,
@@ -1977,6 +1980,7 @@ async def async_download_structures(structures: list,
         max_concurrent: Maximum number of concurrent downloads
         folder: Folder to save structures to
         debug: Whether to print debug messages
+        assembly: Assembly type to download ("asymetric" or "biological")
     """
     semaphore = asyncio.Semaphore(max_concurrent)
     tasks = [async_download_structure(structure,
@@ -1994,15 +1998,20 @@ async def async_download_structures(structures: list,
                 await task
                 results["succeeded"].append(structure)
             except Exception as e:
-                results["failed"].append((structure, str(e)))
+                error_msg = str(e)
+                results["failed"].append(error_msg)
+                if debug:
+                    print(f"Failed to download {structure}: {error_msg}")
             finally:
                 pbar.update(1)
 
     if results["failed"]:
-        failed_str = "\n".join(f"{s}: {e}" for s, e in results["failed"])
+        failed_str = "\n".join(results["failed"]) + "\nall structures: " + str(structures)
         raise RuntimeError(f"Failed to download {len(results['failed'])} structures:\n{failed_str}")
+    
+    return results
 
-def download_structures(structures: list, max_concurrent: int = 5, folder: str = "structures", debug: bool = False):
+def download_structures(structures: list, assembly: str = "asymetric", max_concurrent: int = 5, folder: str = "structures", debug: bool = False):
     """
     Download multiple structures concurrently.
     Failed downloads will raise exceptions.
@@ -2018,7 +2027,7 @@ def download_structures(structures: list, max_concurrent: int = 5, folder: str =
     debug : bool, optional
         Whether to print debug messages
     """
-    asyncio.run(async_download_structures(structures, max_concurrent=max_concurrent, folder=folder, debug=debug))
+    return asyncio.run(async_download_structures(structures, assembly=assembly, max_concurrent=max_concurrent, folder=folder, debug=debug))
 
 def write_propka_fail(input_file: str, error_message: str):
     """
