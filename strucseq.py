@@ -1876,8 +1876,9 @@ def get_CIF_structure(pdb_id : str,
         PDB ID of the structure to download.
     folder : str, optional
         Folder to save the structure to. The default is "structures".
-    assembly : str, optional
-        The assembly to download. The default is "asymetric". Can be "biological".
+    assembly : str or list, optional
+        The assembly to download. The default is "asymetric". Can be "biological". If a list, will
+        try each specified assembly sequentially.
     strict : bool, optional
         Whether to raise an exception if the structure is not found. The default is True.
     debug : bool, optional
@@ -1887,39 +1888,51 @@ def get_CIF_structure(pdb_id : str,
     None.
     """
 
-    folder = parse_folder(folder)
-    # Check whether the structure exists
-    if os.path.exists(folder + pdb_id + ".cif"):
-        if debug:
-            print("Already have structure for " + pdb_id + ".")
-        return
-    # Get the structure
-    if debug:
-        print("Downloading structure for " + pdb_id + " from PDB.")
-    
-    if assembly == "biological":
-        url = f"https://files.rcsb.org/download/{pdb_id}-assembly1.cif"
-    elif assembly == "asymetric":
-        url = "https://files.rcsb.org/download/" + pdb_id + ".cif"
+    if isinstance(assembly, str):
+        assemblies = [assembly]
+    elif isinstance(assembly, list):
+        assemblies = assembly
     else:
-        raise ValueError(f"Invalid assembly: {assembly}. Must be 'biological' or 'asymetric'.")
+        raise ValueError(f"Invalid assembly: {assembly}. Must be a string or list of strings.")
 
-    data = requests.get(url, allow_redirects=True)
+    for assembly in assemblies:
+        folder = parse_folder(folder)
+        # Check whether the structure exists
+        if os.path.exists(folder + pdb_id + ".cif"):
+            if debug:
+                print("Already have structure for " + pdb_id + ".")
+            return
+        # Get the structure
+        if debug:
+            print("Downloading structure for " + pdb_id + " from PDB.")
+        
+        if assembly == "biological":
+            url = f"https://files.rcsb.org/download/{pdb_id}-assembly1.cif"
+        elif assembly == "asymetric":
+            url = "https://files.rcsb.org/download/" + pdb_id + ".cif"
+        else:
+            raise ValueError(f"Invalid assembly: {assembly}. Must be 'biological' or 'asymetric'.")
 
-    if data.status_code == 404:
         data = requests.get(url, allow_redirects=True)
 
-    # Make sure that response was 200
-    if data.status_code == 200:
-        open(folder + pdb_id + ".cif", 'wb').write(data.content)
-    elif data.status_code == 404:
-        if strict:
-            raise FileNotFoundError("PDB structure for " + pdb_id + " not found.")
+        if data.status_code == 404:
+            data = requests.get(url, allow_redirects=True)
+
+        # Make sure that response was 200
+        if data.status_code == 200:
+            open(folder + pdb_id + ".cif", 'wb').write(data.content)
+        elif data.status_code == 404:
+            if assembly == assemblies[-1]:
+                if strict:
+                    raise FileNotFoundError("PDB structure for " + pdb_id + " not found.")
+                else:
+                    print(f"PDB structure for '{pdb_id}' not found.")
+                    return
+            else:
+                print(f"{assembly} assembly for structure for '{pdb_id}' not found. "
+                      "Trying next assembly...")
         else:
-            print(f"PDB structure for '{pdb_id}' not found.")
-            return
-    else:
-        raise RuntimeError(f"Unexpected error code '{data.status_code}' for PDB structure for {pdb_id}.")
+            raise RuntimeError(f"Unexpected error code '{data.status_code}' for PDB structure for {pdb_id}.")
 
 async def async_download_structure(structure: str,
                                    semaphore: asyncio.Semaphore,
@@ -2027,7 +2040,7 @@ def download_structures(structures: list, assembly: str = "asymetric", max_concu
     debug : bool, optional
         Whether to print debug messages
     """
-    return asyncio.run(async_download_structures(structures, assembly=assembly, max_concurrent=max_concurrent, folder=folder, debug=debug))
+    return asyncio.run(async_download_structures(structures, max_concurrent=max_concurrent, folder=folder, debug=debug))
 
 def write_propka_fail(input_file: str, error_message: str):
     """
