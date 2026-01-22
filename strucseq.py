@@ -106,7 +106,7 @@ get_hydrophobic7 = { # All the amino acid hydrophobicities at pH7
     "DCY":49 # R-cysteine same as L cysteine
 }
 
-def get_uniprot_accessions(pdb_id: str) -> dict:
+def get_uniprot_accessions(pdb_id: str, max_retries : int = 100) -> dict:
     """
     Fetches the UniProt-to-chain mappings for a given PDB ID from the PDBe API.
 
@@ -135,8 +135,8 @@ def get_uniprot_accessions(pdb_id: str) -> dict:
             return {"none" : "none"}
 
         tries = 0
-        while response.status_code == 502 and tries < 100:
-            print(f"502 error, trying again in {2**tries}.")
+        while response.status_code >= 500 and (tries < max_retries or max_retries == -1):
+            print(f"{response.status_code} error for '{url}', trying again in {2**tries}.")
             time.sleep(2**tries)
             response = requests.get(url)
             tries += 1
