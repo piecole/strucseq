@@ -2024,7 +2024,11 @@ async def async_download_structures(structures: list,
     
     return results
 
-def download_structures(structures: list, assembly: str = "asymetric", max_concurrent: int = 5, folder: str = "structures", debug: bool = False):
+def download_structures(structures: list,
+                        assembly: str = "asymetric",
+                        max_concurrent: int = 5,
+                        folder: str = "structures",
+                        debug: bool = False):
     """
     Download multiple structures concurrently.
     Failed downloads will raise exceptions.
@@ -2040,7 +2044,11 @@ def download_structures(structures: list, assembly: str = "asymetric", max_concu
     debug : bool, optional
         Whether to print debug messages
     """
-    return asyncio.run(async_download_structures(structures, max_concurrent=max_concurrent, folder=folder, debug=debug))
+    return asyncio.run(async_download_structures(structures,
+                       max_concurrent=max_concurrent,
+                       folder=folder,
+                       debug=debug,
+                       assembly=assembly))
 
 def write_propka_fail(input_file: str, error_message: str):
     """
