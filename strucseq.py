@@ -2141,6 +2141,29 @@ def run_propka(input_file,
                 pdbio = PDBIO()
                 pdbio.set_structure(structure)
 
+                original_chains = []
+                for chain in structure[0]:
+                    original_chains.append(chain.id)
+
+                remapped_chains = {} # Remapped : Original
+
+                # If any chains are > 1 character, use the remaining alphabet to replace them temporarily
+                for model in structure:
+                    remaining_alphabet = alphabet.copy()
+                    for chain in original_chains:
+                        if chain in remaining_alphabet:
+                            remaining_alphabet.remove(chain)
+                    for chain in model:
+                        if len(chain.id) > 1:
+                            new_chain = remaining_alphabet.pop(0)
+                            remapped_chains[new_chain] = chain.id
+                            chain.id = new_chain
+
+                if len(remapped_chains) > 0:
+                    print("Chains are being remapped due to PROPKA only being able to handle chain"
+                          " ids of 1 character.")
+                    print(f"Remapped chains: {remapped_chains}")
+
                 from Bio.PDB.PDBExceptions import PDBIOException
                 try:
                     pdbio.save(buf)
@@ -2182,6 +2205,14 @@ def run_propka(input_file,
         try:
             shutil.move(input_file + ".pka",
                         propka_path)
+            # Add chain remap dict to the begining of the propka file
+            with open(propka_path, "r") as file:
+                lines = file.readlines()
+            if len(remapped_chains) > 0:
+                with open(propka_path, "w") as file:
+                    file.write("REMAPPED CHAINS: " + str(remapped_chains) + "\n")
+                    for line in lines:
+                        file.write(line)
         except FileNotFoundError as e:
             print(f"Failed to move pka file. path: {input_file + '.pka'}, propka_path: {propka_path}")
             raise e
@@ -2957,3 +2988,4 @@ def get_human_uniprot_list(filepath = None):
         assert isinstance(filepath, str), "Expected str for filepath, got " + repr(type(filepath))
         df.to_csv(filepath, sep = "\t", index = False)
     return df
+
