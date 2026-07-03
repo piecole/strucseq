@@ -2062,6 +2062,8 @@ def write_propka_fail(input_file: str, error_message: str):
 
 import propka.run as pk
 
+long_alphabet = list("ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789")
+
 def run_propka(input_file,
                structure_folder = "structures",
                structure_extension = "ent",
@@ -2149,12 +2151,17 @@ def run_propka(input_file,
 
                 # If any chains are > 1 character, use the remaining alphabet to replace them temporarily
                 for model in structure:
-                    remaining_alphabet = alphabet.copy()
+                    remaining_alphabet = long_alphabet.copy()
                     for chain in original_chains:
                         if chain in remaining_alphabet:
                             remaining_alphabet.remove(chain)
                     for chain in model:
                         if len(chain.id) > 1:
+                            if len(remaining_alphabet) == 0:
+                                raise ValueError(
+                                    f"No remaining alphabet to replace chain id for {chain.id}."
+                                    f"Cannot convert {input_file} to PDB to run PROPKA."
+                                )
                             new_chain = remaining_alphabet.pop(0)
                             remapped_chains[new_chain] = chain.id
                             chain.id = new_chain
