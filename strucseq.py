@@ -162,6 +162,62 @@ def get_uniprot_accessions(pdb_id: str, max_retries : int = 100) -> dict:
 
 
 
+def get_pdb_info(pdb_id: str,
+                 endpoint: str = "summary",
+                 max_retries: int = 100) -> list:
+    """
+    Fetches metadata about a PDB entry from the PDBe API.
+
+
+    Parameters
+    ----------
+    pdb_id : str
+        The 4-character PDB identifier.
+    endpoint : str
+        Which PDBe entry endpoint to query. Common options:
+
+        - "summary"    : title, experimental method, release date, assemblies, etc.
+        - "experiment" : resolution, R-factors, space group, etc.
+        - "molecules"  : entities/chains, sequences, etc.
+        - "publications", "ligand_monomers", ...
+
+        Any valid PDBe "pdb/entry/<endpoint>" path is accepted.
+    max_retries : int
+        Maximum number of retries on 5xx server errors. Use -1 for infinite.
+
+    Returns
+    -------
+    list: The list of entry records for the PDB ID. Most endpoints return a single-item.
+          list.
+    """
+    import requests
+
+    # Normalise the PDB ID (PDBe entry endpoints are keyed on lowercase IDs)
+    pdb_id = pdb_id.strip().lower()
+
+    # Construct the API URL
+    url = f'https://www.ebi.ac.uk/pdbe/api/pdb/entry/{endpoint}/{pdb_id}'
+
+    try:
+        response = requests.get(url) # No timeout, sometimes it takes AGES but then works
+        if response.status_code == 404:
+            # No entry/metadata available for this ID + endpoint
+            return []
+
+        tries = 0
+        while response.status_code >= 500 and (tries < max_retries or max_retries == -1):
+            print(f"{response.status_code} error for '{url}', trying again in {2**tries}.")
+            time.sleep(2**tries)
+            response = requests.get(url)
+            tries += 1
+        response.raise_for_status()
+    except requests.RequestException as e:
+        raise Exception(f"Failed to fetch PDB info ({endpoint}) for {pdb_id}: {e}")
+
+    data = response.json()
+
+    return data.get(pdb_id, [])
+
 #   OLD VERSION OF THE FUNCTION:
 def iterate_uniprot_accessions_OLD(in_csv : str,
                                    out_csv : str,
@@ -2134,15 +2190,17 @@ def run_propka(input_file,
                     print(f"Converting CIF to PDB for PROPKA: {path}")
                 from io import StringIO
                 try:
+                    print("Loading CIF")
                     structure = MMCIFParser().get_structure("struc", unzipped)
                 except MemoryError as e:
                     print(f"MemoryError parsing MMCIF file (file too large): {input_file}")
                     write_propka_fail(input_file, f"MemoryError: Structure too large to parse from CIF")
                     return
                 buf = StringIO()
+                if not silence:
+                    print("Saving PDB")
                 pdbio = PDBIO()
                 pdbio.set_structure(structure)
-
                 original_chains = []
                 for chain in structure[0]:
                     original_chains.append(chain.id)
@@ -2173,6 +2231,8 @@ def run_propka(input_file,
 
                 from Bio.PDB.PDBExceptions import PDBIOException
                 try:
+                    if not silence:
+                        print("Saving PDB")
                     pdbio.save(buf)
                 # Exception likely caused by incompatibility of CIF file with converting to PDB
                 # format. e.g. chain is V1 or too long
@@ -2197,6 +2257,8 @@ def run_propka(input_file,
             try:
                 # When stream is specified, filename doesn't matter but is just used to infer
                 # structure format
+                if not silence:
+                    print("Running PROPKA...")
                 i = pk.single(path.split(".")[0] + ".pdb", # Add .pdb to make PROPKA happy
                               optargs = optargs,
                               stream = buf) #perform PROPKA on the file
