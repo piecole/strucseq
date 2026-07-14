@@ -181,7 +181,6 @@ def get_pdb_info(pdb_id: str,
         - "molecules"  : entities/chains, sequences, etc.
         - "publications", "ligand_monomers", ...
 
-        Any valid PDBe "pdb/entry/<endpoint>" path is accepted.
     max_retries : int
         Maximum number of retries on 5xx server errors. Use -1 for infinite.
 
