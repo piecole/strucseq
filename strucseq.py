@@ -941,7 +941,10 @@ def iterate_uniprot_details(in_csv : str,
 
 def extract_chain_sequences_from_structure(structure: Structure):
     chain_sequences = {}
-    for chain in structure[0]:
+    model = next(structure.get_models(), None)
+    if model is None:
+        return chain_sequences
+    for chain in model:
         # Skip empty chains
         if not chain:
             continue
@@ -2220,9 +2223,11 @@ def run_propka(input_file,
                     print("Saving PDB")
                 pdbio = PDBIO()
                 pdbio.set_structure(structure)
-                original_chains = []
-                for chain in structure[0]:
-                    original_chains.append(chain.id)
+                first_model = next(structure.get_models(), None)
+                if first_model is None:
+                    write_propka_fail(input_file, "No models in structure")
+                    return
+                original_chains = [chain.id for chain in first_model]
 
                 remapped_chains = {} # Remapped : Original
 
@@ -2830,12 +2835,9 @@ def get_res_HSE_structure(structure,
     model = structure
 
     if isinstance(model, Structure.Structure):
-        try:
-            model = structure[0]
-        except KeyError as e:
-            print(f"Error getting model from structure: {structure}")
-            print(f"Structure contents: '{', '.join([str(model) for model in structure])}'")
-            raise e
+        model = next(structure.get_models(), None)
+        if model is None:
+            raise KeyError(f"No models in {structure}")
 
     model = copy.deepcopy(model)
 
