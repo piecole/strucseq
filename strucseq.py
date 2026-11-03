@@ -2152,6 +2152,7 @@ def run_propka(input_file,
     """
     
     worked = False
+    remapped_chains = {}
 
     # Check if propka is installed
     try:
