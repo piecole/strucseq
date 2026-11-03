@@ -1,5 +1,6 @@
 import time
 import gzip
+import tempfile
 from typing import Union
 import ast
 import os
@@ -40,6 +41,22 @@ except ModuleNotFoundError:
     def tqdm(iterator, *args, **kwargs):
         return iterator
     print("tqdm not installed, progress bars will not work.")
+
+def _atomic_write_bytes(path, content : bytes):
+    """Replace path with a complete file. A second writer cannot leave a partial one."""
+    directory = os.path.dirname(os.path.abspath(path))
+    os.makedirs(directory, exist_ok = True)
+    descriptor, temporary = tempfile.mkstemp(dir = directory, prefix = ".partial_", suffix = ".download")
+    try:
+        with os.fdopen(descriptor, "wb") as handle:
+            handle.write(content)
+        os.replace(temporary, path)
+    except Exception:
+        try:
+            os.remove(temporary)
+        except OSError:
+            pass
+        raise
 
 alphabet = ["A","B","C","D","E","F","G","H","I","J","K","L","M","N","O","P",
             "Q","R","S","T","U","V","W","X","Y","Z", "DCY"]
@@ -1814,15 +1831,17 @@ def get_alphafold_structure(uniprot_code : str,
 
     """
     folder = parse_folder(folder)
-    # Check whether the structure exists
-    if os.path.exists(folder + uniprot_code + "." + extension):
+    # ent is the same file type as pdb, and the saved name uses pdb.
+    save_extension = "pdb" if extension == "ent" else extension
+    already = (
+        os.path.exists(folder + uniprot_code + "." + extension)
+        or os.path.exists(folder + uniprot_code + "." + save_extension)
+    )
+    if already:
         if debug:
             print("Already have structure for " + uniprot_code + ".")
         return
-
-    if extension == "ent":
-        # ent is not supported, but is the same file type as pdb anyway.
-        extension = "pdb"
+    extension = save_extension
 
     # Get the structure
     if not silent:
@@ -1842,7 +1861,7 @@ def get_alphafold_structure(uniprot_code : str,
             return
 
     # Save the structure
-    open(folder + uniprot_code + "." + extension, 'wb').write(data.content)
+    _atomic_write_bytes(folder + uniprot_code + "." + extension, data.content)
 
 def PDBsearch(query : str) -> list:
     """
@@ -1975,7 +1994,7 @@ def get_CIF_structure(pdb_id : str,
 
         # Make sure that response was 200
         if data.status_code == 200:
-            open(folder + pdb_id + ".cif", 'wb').write(data.content)
+            _atomic_write_bytes(folder + pdb_id + ".cif", data.content)
         elif data.status_code == 404:
             if assembly == assemblies[-1]:
                 if strict:
