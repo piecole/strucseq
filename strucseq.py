@@ -123,6 +123,43 @@ get_hydrophobic7 = { # All the amino acid hydrophobicities at pH7
     "DCY":49 # R-cysteine same as L cysteine
 }
 
+def _transient_request(url, timeout = 120, attempts = 5):
+    """GET a URL. A 404 is returned. Rate limits, server errors, and timeouts wait 4**attempt and raise on the fifth attempt."""
+    last_error = None
+    for attempt in range(1, attempts + 1):
+        try:
+            response = requests.get(url, timeout = timeout, allow_redirects = True)
+        except requests.RequestException as error:
+            last_error = error
+            if attempt == attempts:
+                raise
+            wait = 4 ** attempt
+            print(
+                f"Request failed ({error.__class__.__name__}) for {url}, "
+                f"waiting {wait}s (attempt {attempt} of {attempts})",
+                flush = True,
+            )
+            time.sleep(wait)
+            continue
+        if response.status_code == 404:
+            return response
+        if response.status_code == 429 or response.status_code >= 500:
+            if attempt == attempts:
+                raise requests.HTTPError(
+                    f"{response.status_code} for {url} after {attempts} attempts",
+                    response = response,
+                )
+            wait = 4 ** attempt
+            print(
+                f"Got {response.status_code} for {url}, "
+                f"waiting {wait}s (attempt {attempt} of {attempts})",
+                flush = True,
+            )
+            time.sleep(wait)
+            continue
+        return response
+    raise last_error
+
 def get_uniprot_accessions(pdb_id: str, max_retries : int = 100) -> dict:
     """
     Fetches the UniProt-to-chain mappings for a given PDB ID from the PDBe API.
@@ -146,22 +183,11 @@ def get_uniprot_accessions(pdb_id: str, max_retries : int = 100) -> dict:
     url = f'https://www.ebi.ac.uk/pdbe/api/mappings/uniprot/{pdb_id}'
 
     try:
-        response = requests.get(url) # Removed the timeout, sometimes it takes AGES but then works
+        response = _transient_request(url, timeout = 120)
         if response.status_code == 404:
-            # No mapping available (common for antibody Fabs etc.)
             return {"none" : "none"}
-
-        tries = 0
-        while response.status_code >= 500 and (tries < max_retries or max_retries == -1):
-            print(f"{response.status_code} error for '{url}', trying again in {2**tries}.")
-            time.sleep(2**tries)
-            response = requests.get(url)
-            tries += 1
-        response.raise_for_status()
     except requests.RequestException as e:
-        raise Exception(f"Failed to fetch UniProt mapping for {pdb_id}: {e}")
-        print(f"Warning: could not fetch UniProt mapping for {pdb_id}: {e}")
-        return {}
+        raise Exception(f"Failed to fetch UniProt mapping for {pdb_id}: {e}") from e
 
     data = response.json()
     chain_to_uniprot = {}
@@ -215,20 +241,11 @@ def get_pdb_info(pdb_id: str,
     url = f'https://www.ebi.ac.uk/pdbe/api/pdb/entry/{endpoint}/{pdb_id}'
 
     try:
-        response = requests.get(url) # No timeout, sometimes it takes AGES but then works
+        response = _transient_request(url, timeout = 120)
         if response.status_code == 404:
-            # No entry/metadata available for this ID + endpoint
             return []
-
-        tries = 0
-        while response.status_code >= 500 and (tries < max_retries or max_retries == -1):
-            print(f"{response.status_code} error for '{url}', trying again in {2**tries}.")
-            time.sleep(2**tries)
-            response = requests.get(url)
-            tries += 1
-        response.raise_for_status()
     except requests.RequestException as e:
-        raise Exception(f"Failed to fetch PDB info ({endpoint}) for {pdb_id}: {e}")
+        raise Exception(f"Failed to fetch PDB info ({endpoint}) for {pdb_id}: {e}") from e
 
     data = response.json()
 
@@ -1667,7 +1684,7 @@ def get_uniprot_sequence(unicode : str,
                          pass_nan : bool = True,
                          pass_no_output = True,
                          debug : bool = False,
-                         max_retries : int = 3,
+                         max_retries : int = 7,
                          timeout : int = 30,
                          session : requests.Session = None) -> str:
     """
@@ -1684,7 +1701,7 @@ def get_uniprot_sequence(unicode : str,
     debug : bool, optional
         Should this function print as it goes.
     max_retries : int, optional
-        Maximum number of retry attempts for failed requests. Default is 3.
+        Maximum number of retry attempts for failed requests. Default is 7.
     timeout : int, optional
         Timeout duration in seconds for the request. Default is 30.
 
@@ -1709,33 +1726,40 @@ def get_uniprot_sequence(unicode : str,
         if debug == True:
             print("getting", "https://rest.uniprot.org/uniprotkb/" + unicode + ".fasta")
 
-        retries = 0
-        while retries < max_retries:
+        output = ""
+        for attempt in range(1, max_retries + 1):
             try:
                 response = session.get(
                     "https://rest.uniprot.org/uniprotkb/" + unicode + ".fasta",
                     timeout=timeout
                 )
-                response.raise_for_status()  # Raise exception for bad status codes
+                if response.status_code == 404:
+                    break
+                if response.status_code == 429 or response.status_code >= 500:
+                    if attempt == max_retries:
+                        response.raise_for_status()
+                    wait = 4 ** attempt
+                    print(
+                        f"UniProt returned {response.status_code} for {unicode}, "
+                        f"waiting {wait}s (attempt {attempt} of {max_retries})",
+                        flush = True,
+                    )
+                    time.sleep(wait)
+                    continue
+                response.raise_for_status()
                 output = "".join(response.text.split("\n")[1:-1])
                 break
             except (requests.exceptions.Timeout,
                     requests.exceptions.ConnectionError,
                     requests.exceptions.ReadTimeout) as e:
-                retries += 1
-                if retries == max_retries:
-                    if debug:
-                        print(f"Failed to fetch sequence for {unicode} after {max_retries} attempts")
+                if attempt == max_retries:
                     raise ConnectionError(f"Failed to fetch sequence for {unicode} after {max_retries} attempts") from e
-                if debug:
-                    print(f"Attempt {retries} failed, retrying in {4**retries} seconds...")
-                time.sleep(4**retries)  # Exponential backoff
-            except requests.exceptions.HTTPError as e:
-                if debug:
-                    print(f"HTTP error for {unicode}: {str(e)}")
-                if pass_no_output:
-                    return ""
-                raise
+                wait = 4 ** attempt
+                print(
+                    f"Attempt {attempt} failed for {unicode}, waiting {wait}s",
+                    flush = True,
+                )
+                time.sleep(wait)
 
         # If pass_no_output = False then raise an exception if the output is ""
         if pass_no_output == False and output == "":
@@ -1853,15 +1877,18 @@ def get_alphafold_structure(uniprot_code : str,
     url = "https://alphafold.ebi.ac.uk/files/AF-" + uniprot_code + f"-F1-model_v6.{extension}"
     if debug:
         print("Downloading structure from: " + url)
-    data = requests.get(url, allow_redirects=True)
+    data = _transient_request(url, timeout = 120)
 
-    if "NoSuchKey" in str(data.content):
+    if data.status_code == 404 or b"NoSuchKey" in data.content:
         if strict:
             raise Exception("AlphaFold structure for " + uniprot_code + " not found.")
         else:
             if debug:
                 print("AlphaFold structure for " + uniprot_code + " not found.")
             return
+
+    if data.status_code != 200:
+        raise RuntimeError(f"Unexpected error code '{data.status_code}' for AlphaFold structure {uniprot_code}.")
 
     # Save the structure
     _atomic_write_bytes(folder + uniprot_code + "." + extension, data.content)
@@ -1925,7 +1952,7 @@ def get_PDB_structure(pdb_id : str,
     url = "https://files.rcsb.org/download/" + pdb_id + ".pdb"
     if gzipped:
         url = url + ".gz"
-    data = requests.get(url, allow_redirects=True)
+    data = _transient_request(url, timeout = 120)
     # Make sure that response was 200
     if data.status_code == 200:
         open(folder + pdb_id + "." + extension, 'wb').write(data.content)
@@ -1990,10 +2017,7 @@ def get_CIF_structure(pdb_id : str,
         else:
             raise ValueError(f"Invalid assembly: {assembly}. Must be 'biological' or 'asymetric'.")
 
-        data = requests.get(url, allow_redirects=True)
-
-        if data.status_code == 404:
-            data = requests.get(url, allow_redirects=True)
+        data = _transient_request(url, timeout = 120)
 
         # Make sure that response was 200
         if data.status_code == 200:
