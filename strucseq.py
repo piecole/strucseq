@@ -1,25 +1,25 @@
-import time
-import gzip
-import tempfile
-from typing import Union
 import ast
-import os
-import glob
-import shutil
-import csv
-import re
-import statistics as stats
 import asyncio
+import csv
+import glob
+import gzip
+import os
+import re
+import shutil
+import statistics as stats
+import tempfile
 import threading
+import time
+from typing import Union
+
+import numpy as np
+import pandas as pd
 import requests
+from Bio.Blast import NCBIWWW, NCBIXML
+from Bio.PDB import PDBIO, HSExposure, HSExposureCA, MMCIFParser, PDBParser, Structure
+from Bio.PDB.NeighborSearch import NeighborSearch
 from bs4 import BeautifulSoup
 from bs4 import exceptions as bs4_exceptions
-import pandas as pd
-import numpy as np
-from Bio.PDB import PDBParser, Structure, HSExposureCA, HSExposure, MMCIFParser, PDBIO
-from Bio.Blast import NCBIWWW
-from Bio.Blast import NCBIXML
-from Bio.PDB.NeighborSearch import NeighborSearch
 
 try:
     import propka.run as pk
@@ -57,6 +57,70 @@ def _atomic_write_bytes(path, content : bytes):
         except OSError:
             pass
         raise
+
+_COORDINATE_PREFIXES = (
+    b"HEADER", b"ATOM", b"HETATM", b"MODEL", b"REMARK", b"TITLE",
+    b"CRYST1", b"COMPND", b"SOURCE", b"KEYWDS", b"EXPDTA",
+    b"AUTHOR", b"REVDAT", b"SEQRES", b"NUMMDL",
+)
+_ERROR_PAGE_MARKERS = (
+    b"too many requests",
+    b"nosuchkey",
+    b"accessdenied",
+    b"<error",
+    b"<html",
+    b"<!doctype",
+    b"rate limit",
+    b"request throttled",
+)
+
+def _response_preview(content : bytes) -> str:
+    return content[:160].decode("utf-8", errors = "replace").replace("\n", " ")
+
+def error_page_bytes(content : bytes) -> bool:
+    """An HTTP or storage error body, including a 429 page saved as a structure."""
+    if not content:
+        return True
+    head = content[:4096].lstrip().lower()
+    if head.startswith((b"<", b"{", b"<!")):
+        return True
+    return any(marker in head for marker in _ERROR_PAGE_MARKERS)
+
+def coordinate_bytes_ok(content : bytes, kind : str) -> bool:
+    """True when the body is a PDB or mmCIF record, not an error page."""
+    if error_page_bytes(content) or len(content) < 32:
+        return False
+    head = content.lstrip()
+    if kind == "cif":
+        return head.startswith(b"data_")
+    return head.startswith(_COORDINATE_PREFIXES)
+
+def saved_coordinate_ok(path : str) -> bool:
+    kind = "cif" if str(path).lower().endswith(".cif") else "pdb"
+    try:
+        with open(path, "rb") as handle:
+            content = handle.read(4096)
+    except OSError:
+        return False
+    return coordinate_bytes_ok(content, kind)
+
+def discard_bad_coordinate(path : str) -> bool:
+    """Delete a file that is present but is not a coordinate file."""
+    if not os.path.exists(path):
+        return False
+    if saved_coordinate_ok(path):
+        return False
+    print(f"ERROR: {path} is not a structure file. Removing it.", flush = True)
+    os.remove(path)
+    return True
+
+def require_coordinate_bytes(content : bytes, kind : str, label : str, status : int):
+    """Raise when a download body is not a coordinate file. Nothing is written."""
+    if status == 200 and coordinate_bytes_ok(content, kind):
+        return
+    raise RuntimeError(
+        f"{label} is not a structure file (HTTP {status}): {_response_preview(content)}"
+    )
 
 alphabet = ["A","B","C","D","E","F","G","H","I","J","K","L","M","N","O","P",
             "Q","R","S","T","U","V","W","X","Y","Z", "DCY"]
@@ -1860,11 +1924,9 @@ def get_alphafold_structure(uniprot_code : str,
     folder = parse_folder(folder)
     # ent is the same file type as pdb, and the saved name uses pdb.
     save_extension = "pdb" if extension == "ent" else extension
-    already = (
-        os.path.exists(folder + uniprot_code + "." + extension)
-        or os.path.exists(folder + uniprot_code + "." + save_extension)
-    )
-    if already:
+    for existing_extension in dict.fromkeys((extension, save_extension)):
+        discard_bad_coordinate(folder + uniprot_code + "." + existing_extension)
+    if os.path.exists(folder + uniprot_code + "." + save_extension):
         if debug:
             print("Already have structure for " + uniprot_code + ".")
         return
@@ -1879,18 +1941,15 @@ def get_alphafold_structure(uniprot_code : str,
         print("Downloading structure from: " + url)
     data = _transient_request(url, timeout = 120)
 
-    if data.status_code == 404 or b"NoSuchKey" in data.content:
+    if data.status_code == 404 or b"NoSuchKey" in data.content[:4096]:
         if strict:
-            raise Exception("AlphaFold structure for " + uniprot_code + " not found.")
-        else:
-            if debug:
-                print("AlphaFold structure for " + uniprot_code + " not found.")
-            return
+            raise FileNotFoundError("AlphaFold structure for " + uniprot_code + " not found.")
+        if debug:
+            print("AlphaFold structure for " + uniprot_code + " not found.")
+        return
 
-    if data.status_code != 200:
-        raise RuntimeError(f"Unexpected error code '{data.status_code}' for AlphaFold structure {uniprot_code}.")
-
-    # Save the structure
+    require_coordinate_bytes(
+        data.content, "pdb", f"AlphaFold structure {uniprot_code}", data.status_code)
     _atomic_write_bytes(folder + uniprot_code + "." + extension, data.content)
 
 def PDBsearch(query : str) -> list:
@@ -1941,8 +2000,9 @@ def get_PDB_structure(pdb_id : str,
     print("WARNING: This function is depreciated as new structures are in CIF format. Use get_CIF_structure() instead.")
 
     folder = parse_folder(folder)
-    # Check whether the structure exists
-    if os.path.exists(folder + pdb_id + "." + extension):
+    path = folder + pdb_id + "." + extension
+    discard_bad_coordinate(path)
+    if os.path.exists(path):
         if debug:
             print("Already have structure for " + pdb_id + ".")
         return
@@ -1955,7 +2015,9 @@ def get_PDB_structure(pdb_id : str,
     data = _transient_request(url, timeout = 120)
     # Make sure that response was 200
     if data.status_code == 200:
-        open(folder + pdb_id + "." + extension, 'wb').write(data.content)
+        require_coordinate_bytes(
+            data.content, "pdb", f"PDB structure {pdb_id}", data.status_code)
+        _atomic_write_bytes(folder + pdb_id + "." + extension, data.content)
     elif data.status_code == 404:
         if strict:
             raise FileNotFoundError("PDB structure for " + pdb_id + " not found.")
@@ -1964,7 +2026,8 @@ def get_PDB_structure(pdb_id : str,
                 print(f"PDB structure for '{pdb_id}' not found.")
             return
     else:
-        raise RuntimeError(f"Unexpected error code '{data.status_code}' for PDB structure for {pdb_id}.")
+        require_coordinate_bytes(
+            data.content, "pdb", f"PDB structure {pdb_id}", data.status_code)
 
 def get_CIF_structure(pdb_id : str,
                       folder : str = "structures",
@@ -2001,8 +2064,9 @@ def get_CIF_structure(pdb_id : str,
 
     for assembly in assemblies:
         folder = parse_folder(folder)
-        # Check whether the structure exists
-        if os.path.exists(folder + pdb_id + ".cif"):
+        cif_path = folder + pdb_id + ".cif"
+        discard_bad_coordinate(cif_path)
+        if os.path.exists(cif_path):
             if debug:
                 print("Already have structure for " + pdb_id + ".")
             return
@@ -2021,7 +2085,9 @@ def get_CIF_structure(pdb_id : str,
 
         # Make sure that response was 200
         if data.status_code == 200:
-            _atomic_write_bytes(folder + pdb_id + ".cif", data.content)
+            require_coordinate_bytes(
+                data.content, "cif", f"PDB structure {pdb_id}", data.status_code)
+            _atomic_write_bytes(cif_path, data.content)
         elif data.status_code == 404:
             if assembly == assemblies[-1]:
                 if strict:
@@ -2033,7 +2099,8 @@ def get_CIF_structure(pdb_id : str,
                 print(f"{assembly} assembly for structure for '{pdb_id}' not found. "
                       "Trying next assembly...")
         else:
-            raise RuntimeError(f"Unexpected error code '{data.status_code}' for PDB structure for {pdb_id}.")
+            require_coordinate_bytes(
+                data.content, "cif", f"PDB structure {pdb_id}", data.status_code)
 
 async def async_download_structure(structure: str,
                                    semaphore: asyncio.Semaphore,
@@ -2104,26 +2171,16 @@ async def async_download_structures(structures: list,
                                       assembly=assembly)
              for structure in structures]
 
-    results = {"succeeded": [], "failed": []}
-
     with tqdm(total=len(structures), desc="Downloading structures", position=0) as pbar:
-        for structure, task in zip(structures, asyncio.as_completed(tasks)):
-            try:
+        try:
+            for task in asyncio.as_completed(tasks):
                 await task
-                results["succeeded"].append(structure)
-            except Exception as e:
-                error_msg = str(e)
-                results["failed"].append(error_msg)
-                if debug:
-                    print(f"Failed to download {structure}: {error_msg}")
-            finally:
                 pbar.update(1)
-
-    if results["failed"]:
-        failed_str = "\n".join(results["failed"]) + "\nall structures: " + str(structures)
-        raise RuntimeError(f"Failed to download {len(results['failed'])} structures:\n{failed_str}")
-    
-    return results
+        except Exception:
+            for task in tasks:
+                task.cancel()
+            raise
+    return {"succeeded": list(structures), "failed": []}
 
 def download_structures(structures: list,
                         assembly: str = "asymetric",
@@ -2846,6 +2903,7 @@ def get_structure_sequences(structure):
     return sequences
 
 import copy
+
 
 def get_res_HSE_structure(structure,
                           chain1,
